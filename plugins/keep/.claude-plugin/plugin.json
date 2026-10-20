@@ -13,5 +13,6 @@
     "context",
     "compaction",
     "workflow"
-  ]
+  ],
+  "license": "MIT"
 }
