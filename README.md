@@ -2,15 +2,30 @@
 
 Keep an AI coding agent's working state current across chats, organized by feature.
 
-Long chats lose precision, and starting a new one means explaining again where things stand. `keep` is a Claude Code plugin that holds that state in a few Markdown files per feature, makes the agent keep them current as it works, and loads them into every new chat. You stay in control: it never runs work on its own, and every ticket and commit waits for your approval.
+## The problem
+
+Long agent chats lose precision as they fill up and get compacted, so you start fresh ones. Each new chat then needs a briefing: what's half-done, on which branch, what's failing, what was decided and what was ruled out, what's waiting on someone else, and what comes next. Writing that handoff by hand is tedious, and it's written at the end, from the same context that was losing precision.
+
+It's harder when you own a whole feature rather than one ticket. The build, research for later phases and reviews all rest on the same source docs, and the plan keeps changing as vendors, stakeholders and the implementation turn up new facts. That work runs across many chats, side by side and for weeks.
+
+## How keep is different
+
+**From spec-driven tools** such as OpenSpec or Spec Kit. They solve another layer: agreeing on *what to build* before code is written, and tracking which tasks are done. keep covers the *work in progress*: where each line of work stands right now, kept current while you work. The two fit together, and a feature can plan its tickets with OpenSpec.
+
+**From session handoff tools**, which write a summary when you ask for one, at the end of a session or just before a compaction, for one session or one repo:
+
+- **It's enforced, not remembered.** When a chat edits files or does research, a hook won't let the turn end until the state is updated. Nothing depends on the agent remembering, or on you running a command before you stop.
+- **It's organized by feature, with tracks.** Several chats can work on one feature at once (tickets, a research topic, reviews), share its source docs, and pass decisions to each other through an Inbox.
+- **It's checked against reality.** Each save stamps the feature's repos with their commits, so the next chat sees what changed since (new commits, a different branch, uncommitted files) before it trusts the state.
+
+Everything is plain Markdown in your project, and the hooks make no network or model calls. You stay in control: keep never runs work on its own, and every ticket and commit waits for your approval.
 
 ## How it works
 
-- **Features and tracks.** A feature is a body of work with its own source docs (an RFC, PRD, design doc or spec). It lives in `.keep/<feature>/`. Inside it, each track (tickets, a research topic, reviews) has its own state, so several chats can work on one feature at the same time.
-- **Always current.** When a chat edits files or does research, a Stop hook won't let the turn end until the track's `STATE.md` is updated.
-- **Picks up where it stopped.** A new chat, `/clear`, a resume or a compaction reloads the feature and the track. Saving `STATE.md` stamps each of the feature's repos with its commit, so the next chat sees which commits, branches and uncommitted files changed since.
+- **Files.** A feature lives in `.keep/<feature>/` with a `FEATURE.md` that points to its source docs (an RFC, PRD, design doc or spec) instead of copying them. Each track has a `CONTEXT.md` (what it's for), a `STATE.md` (where it stands) and a `NOTES.md` (reference).
+- **Start.** `/keep:start <feature>/<track>` binds the chat to a track and names the chat after it. A new chat, `/clear`, a resume or a compaction then reloads the feature and the track by themselves.
 - **Stays under the limit.** Hook output over 10,000 characters reaches Claude only as a short preview, so the reload always includes the Inbox, Current and Next step, adds whole sections while they fit, and names the ones it left out.
-- **Decisions travel.** Decisions are recorded with the options they rejected, and a decision that affects another track goes into that track's Inbox.
+- **Decisions.** Each decision is recorded with the options it rejected and why, so a later chat doesn't propose them again.
 
 ## Commands
 
