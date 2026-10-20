@@ -9,8 +9,11 @@ tdir="$keep/$binding"
 case "$(field .tool_name)" in
   WebFetch|WebSearch) touch "$st/dirty-$sid"; exit 0 ;;
   Agent)
-    # doc-expert only reads the feature's own source docs, so asking it isn't new research.
-    [[ "$(field .tool_input.subagent_type)" == *doc-expert ]] || touch "$st/dirty-$sid"
+    # keep's doc-expert only reads the feature's own source docs, so asking it isn't new research.
+    case "$(field .tool_input.subagent_type)" in
+      keep:doc-expert|doc-expert) ;;
+      *) touch "$st/dirty-$sid" ;;
+    esac
     exit 0 ;;
 esac
 
@@ -48,7 +51,8 @@ case "$fp" in
     bash "$(dirname "$0")/../scripts/index.sh" "$root" 2>/dev/null ;;
   # Claude Code puts worktrees under .claude/worktrees/, so edits there are project edits.
   "$root"/.claude/worktrees/*) touch "$st/dirty-$sid" ;;
-  "$keep"/*|"$root"/.claude/*|"") ;;
+  # Claude's own files (settings, memory, plans) aren't project work.
+  "$keep"/*|"$root"/.claude/*|"${HOME:-/nonexistent}"/.claude/*|"") ;;
   *) touch "$st/dirty-$sid" ;;
 esac
 exit 0

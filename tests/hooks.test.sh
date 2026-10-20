@@ -65,6 +65,7 @@ out=$(stop s1 false);                                  ok "stop passes while cle
 edit s1 Edit "$K/shop/FEATURE.md";                     ok "editing keep files stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Edit "$K/shop/research/STATE.md";              ok "editing another track's state stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Edit "$R/.claude/settings.json";               ok "editing the project's .claude stays clean" '[ ! -f "$st/dirty-s1" ]'
+edit s1 Write "$HOME/.claude/projects/p/memory/MEMORY.md"; ok "writing Claude's own memory or plans stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Edit "$R/.claude/worktrees/w1/api/cart.js";    ok "an edit in a Claude Code worktree marks the chat dirty" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
 edit s1 Edit "$R/api/.claude/notes.md";                ok "a repo's own .claude folder counts as project files" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
 edit s1 Edit "$R/api/cart.js";                         ok "a project edit marks the chat dirty" '[ -f "$st/dirty-s1" ]'
@@ -82,7 +83,11 @@ done
 hook track '{"session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"Explore"}}'
 ok "another subagent marks the chat dirty" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
 hook track '{"session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"keep:doc-expert"}}'
-ok "asking doc-expert doesn't" '[ ! -f "$st/dirty-s1" ]'
+ok "asking keep's doc-expert doesn't" '[ ! -f "$st/dirty-s1" ]'
+hook track '{"session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"doc-expert"}}'
+ok "nor does the unprefixed name" '[ ! -f "$st/dirty-s1" ]'
+hook track '{"session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"my-team:doc-expert"}}'
+ok "another plugin's doc-expert still counts" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
 m=$(jq -r '.hooks.PostToolUse[0].matcher' "$H/hooks/hooks.json")
 ok "the matcher passes edits and research, not Read or Bash" '[[ "Edit" =~ ^($m)$ && "Agent" =~ ^($m)$ && ! "Read" =~ ^($m)$ && ! "Bash" =~ ^($m)$ ]]'
 edit s9 Edit "$R/api/cart.js";                         ok "an unbound chat is never tracked" '[ ! -f "$st/dirty-s9" ]'
@@ -101,6 +106,7 @@ rm -f "$R/web/new.txt"
 printf 'one\n' > "$R/api/notes.txt"
 edit s1 Edit "$K/shop/tickets/STATE.md"
 printf 'two\n' > "$R/api/notes.txt"
+touch -t "$(date -v+2M +%Y%m%d%H%M 2>/dev/null || date -d '2 minutes' +%Y%m%d%H%M)" "$R/api/notes.txt"
 q "$R/api" reset --hard HEAD~1
 out=$(bash "$H/scripts/freshness.sh" "$R" shop/tickets)
 ok "a reset to an older commit is reported" '[[ "$out" == *"api (main): moved back 1 commit(s)"* ]]'
@@ -204,7 +210,16 @@ ok "freshness says when there's no stamp" '[[ "$out" == *"No git stamp yet"* ]]'
 
 echo "--- chats side by side"
 errs=$( { for i in 1 2 3 4 5 6 7 8; do bash "$H/scripts/index.sh" "$R" & done; wait; } 2>&1 )
-ok "parallel index runs don't collide" '[ -z "$errs" ] && [ -z "$(ls "$K"/INDEX.md.* 2>/dev/null)" ] && grep -q "shop/tickets" "$K/INDEX.md"'
+ok "parallel index runs don't collide or leave temp files" '[ -z "$errs" ] && [ -z "$(ls "$K"/INDEX.md.* "$st"/INDEX.* 2>/dev/null)" ] && grep -q "shop/tickets" "$K/INDEX.md"'
+F=$(mktemp -d "${TMPDIR:-/tmp}/keep-fresh.XXXXXX"); mkdir -p "$F/.keep"
+bash "$H/scripts/index.sh" "$F"
+ok "the index's temp files go to a git-ignored .state/, even on a fresh keep folder" '[ "$(cat "$F/.keep/.state/.gitignore")" = "*" ] && grep -q "mktemp \"\$keep/.state/" "$H/scripts/index.sh"'
+rm -rf "$F"
+T=$(mktemp -d "${TMPDIR:-/tmp}/keep-big.XXXXXX"); q "$T" init -b main; q "$T" -c user.name=t -c user.email=t@example.com commit --allow-empty -m s
+dd if=/dev/zero of="$T/big.bin" bs=1048576 count=300 2>/dev/null
+t0=$(date +%s); changes_out=$(. "$H/scripts/common.sh"; changes_fingerprint "$T"); t1=$(date +%s)
+ok "a 300 MB untracked file doesn't slow the fingerprint ($((t1 - t0))s)" '[ $((t1 - t0)) -le 1 ] && [ -n "$changes_out" ]'
+rm -rf "$T"
 printf 'scratch' > "$K/.gitignore"
 bash "$H/scripts/index.sh" "$R"
 ok "appending to a .gitignore without a final newline keeps lines apart" '[ "$(cat "$K/.gitignore")" = "$(printf "scratch\nINDEX.md")" ]'

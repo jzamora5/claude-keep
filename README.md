@@ -31,7 +31,7 @@ Everything is plain Markdown in your project, and the hooks make no network or m
 
 ## What the gate covers
 
-- **Counted:** edits with Edit, Write and NotebookEdit to files in the project, including Claude Code worktrees under `.claude/worktrees/`; web fetches and searches; and subagents, except `doc-expert`, which only reads the feature's own source docs. Edits inside `.keep/` and to the project's own `.claude/` settings aren't counted.
+- **Counted:** edits with Edit, Write and NotebookEdit to files in the project, including Claude Code worktrees under `.claude/worktrees/`; web fetches and searches; and subagents, except keep's `doc-expert`, which only reads the feature's own source docs. Edits inside `.keep/`, to the project's own `.claude/` settings, and to Claude's files in `~/.claude/` (memory, plans) aren't counted.
 - **Not counted:** files changed through shell commands (`sed -i`, code generators, `git checkout`). Run `/keep:save` after work like that.
 - **How hard it pushes:** the Stop hook sends the chat back once per turn, as Stop hook feedback rather than an error. If the state still isn't updated, it asks again at the end of the next turn, even one that only answered a question, until the state is saved.
 - **Worktree sessions:** freshness checks the worktree the session works in. In a `--worktree` or `EnterWorktree` session, Claude Code blocks edits to the main checkout, so if `.keep/` is inside the repo the worktree came from, the state can't be updated from there. Keep `.keep/` in a folder above your repos, or save from a session in the main checkout.
@@ -100,7 +100,7 @@ To use it in one project only, add this to that project's `.claude/settings.json
 
 ## Status
 
-Version 0.3.0, early. The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2; they haven't run in a live session yet. `tests/live-checklist.md` lists the checks for a real session.
+Version 0.3.1, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2; they haven't run in a live session yet. `tests/live-checklist.md` lists the checks for a real session.
 
 ## Credits
 

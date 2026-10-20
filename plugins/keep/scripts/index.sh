@@ -7,8 +7,12 @@ root="${1:-$PWD}"
 keep=$(keep_dir "$root")
 [ -d "$keep" ] || exit 0
 idle="${KEEP_IDLE_DAYS:-14}"
-# Chats run side by side, so each run writes its own temporary file.
-tmp=$(mktemp "$keep/INDEX.md.XXXXXX") || exit 0
+# Chats run side by side, so each run writes its own temporary file, inside .state/ so git never sees
+# one left behind by a run that was killed.
+mkdir -p "$keep/.state" || exit 0
+[ -f "$keep/.state/.gitignore" ] || printf '*\n' > "$keep/.state/.gitignore"
+tmp=$(mktemp "$keep/.state/INDEX.XXXXXX") || exit 0
+trap 'rm -f "$tmp"' EXIT
 
 {
   echo "# keep index"

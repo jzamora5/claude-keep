@@ -69,14 +69,17 @@ repo_dir() {
   if [ "$2" = "." ]; then printf '%s' "${3:-$1}"; else printf '%s/%s' "$1" "$2"; fi
 }
 
-# changes_fingerprint <dir>: changes when anything uncommitted changes, not only the number of files.
-# git diff skips untracked files, so their contents are hashed separately.
+# changes_fingerprint <dir>: changes when tracked changes or the list of untracked files changes, not only
+# the number of files. Untracked contents aren't hashed, so a large untracked file can't slow the hooks;
+# untracked_newer covers rewrites of those.
 changes_fingerprint() {
-  {
-    git -C "$1" status --porcelain 2>/dev/null
-    git -C "$1" diff HEAD 2>/dev/null
-    git -C "$1" ls-files --others --exclude-standard -z 2>/dev/null | (cd "$1" && xargs -0 git hash-object 2>/dev/null)
-  } | git hash-object --stdin 2>/dev/null
+  { git -C "$1" status --porcelain 2>/dev/null; git -C "$1" diff HEAD 2>/dev/null; } | git hash-object --stdin 2>/dev/null
+}
+
+# untracked_newer <dir> <file>: the first untracked file modified after <file>, if any.
+untracked_newer() {
+  git -C "$1" ls-files --others --exclude-standard -z 2>/dev/null \
+    | (cd "$1" && xargs -0 sh -c '[ "$#" -gt 0 ] || exit 0; find "$@" -prune -newer "$0" -print' "$2" 2>/dev/null) | head -1
 }
 
 # lines_within <bytes>: copy whole lines from stdin while they fit, so a cut never splits a character.
