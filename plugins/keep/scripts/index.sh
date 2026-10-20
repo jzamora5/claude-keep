@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# index.sh [project root]: regenerate <keep>/INDEX.md, the list of features and tracks with the command to
+# index.sh [project root]: regenerate .keep/INDEX.md, the list of features and tracks with the command to
 # start each. Only rewritten when its content changes.
 set -uo pipefail
 . "$(dirname "$0")/common.sh"
@@ -7,7 +7,8 @@ root="${1:-$PWD}"
 keep=$(keep_dir "$root")
 [ -d "$keep" ] || exit 0
 idle="${KEEP_IDLE_DAYS:-14}"
-tmp="$keep/INDEX.md.tmp"
+# Chats run side by side, so each run writes its own temporary file.
+tmp=$(mktemp "$keep/INDEX.md.XXXXXX") || exit 0
 
 {
   echo "# keep index"
@@ -32,9 +33,14 @@ tmp="$keep/INDEX.md.tmp"
     echo
     echo "Archived tracks: $archived, in \`_archive/\`."
   fi
-} > "$tmp" || exit 0
+} > "$tmp" || { rm -f "$tmp"; exit 0; }
 
 if cmp -s "$tmp" "$keep/INDEX.md"; then rm -f "$tmp"; else mv "$tmp" "$keep/INDEX.md"; fi
+
 # The index is derived from the state files, so it stays out of git.
-grep -qxF 'INDEX.md' "$keep/.gitignore" 2>/dev/null || echo 'INDEX.md' >> "$keep/.gitignore"
+gi="$keep/.gitignore"
+if ! grep -qxF 'INDEX.md' "$gi" 2>/dev/null; then
+  [ -s "$gi" ] && [ -n "$(tail -c 1 "$gi")" ] && echo >> "$gi"
+  echo 'INDEX.md' >> "$gi"
+fi
 exit 0

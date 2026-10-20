@@ -14,7 +14,7 @@ It's harder when you own a whole feature rather than one ticket. The build, rese
 
 **From session handoff tools**, which write a summary when you ask for one, at the end of a session or just before a compaction, for one session or one repo:
 
-- **It's enforced, not remembered.** When a chat edits files or does research, a hook won't let the turn end until the state is updated. Nothing depends on the agent remembering, or on you running a command before you stop.
+- **It's enforced, not remembered.** When a chat edits files or does research, a hook sends it back to update the state before the turn ends. Nothing depends on the agent remembering, or on you running a command before you stop. [What the gate covers](#what-the-gate-covers) has the details.
 - **It's organized by feature, with tracks.** Several chats can work on one feature at once (tickets, a research topic, reviews), share its source docs, and pass decisions to each other through an Inbox.
 - **It's checked against reality.** Each save stamps the feature's repos with their commits, so the next chat sees what changed since (new commits, a different branch, uncommitted files) before it trusts the state.
 
@@ -27,7 +27,14 @@ Everything is plain Markdown in your project, and the hooks make no network or m
 - **Stays under the limit.** Hook output over 10,000 characters reaches Claude only as a short preview, so the reload always includes the Inbox, Current and Next step, adds whole sections while they fit, and names the ones it left out.
 - **Decisions.** Each decision is recorded with the options it rejected and why, so a later chat doesn't propose them again.
 - **You always know what exists.** `.keep/INDEX.md` is regenerated at every chat start and every state save: each track, its current work, its last update and the command to start it. New features and tracks get a name you approve before they're created.
-- **Cleanup is one command.** `/keep:close` hands off what's still open, then moves the track or feature into `.keep/_archive/` and unbinds its chats; nothing is deleted. Tracks untouched for 14 days are flagged as idle, and runtime files of old sessions are cleared after 30 days.
+- **Cleanup is one command.** `/keep:close` hands off what's still open, then moves the track or feature into `.keep/_archive/` and unbinds its chats; the track's own files are never deleted. Tracks untouched for 14 days are flagged as idle, and runtime files of old sessions are cleared after 30 days.
+
+## What the gate covers
+
+- **Counted:** edits with Edit, Write and NotebookEdit to files in the project, including Claude Code worktrees under `.claude/worktrees/`; web fetches and searches; and subagents, except `doc-expert`, which only reads the feature's own source docs. Edits inside `.keep/` and to the project's own `.claude/` settings aren't counted.
+- **Not counted:** files changed through shell commands (`sed -i`, code generators, `git checkout`). Run `/keep:save` after work like that.
+- **How hard it pushes:** the Stop hook sends the chat back once per turn, as Stop hook feedback rather than an error. If the state still isn't updated, it asks again at the end of the next turn, even one that only answered a question, until the state is saved.
+- **Worktree sessions:** freshness checks the worktree the session works in. In a `--worktree` or `EnterWorktree` session, Claude Code blocks edits to the main checkout, so if `.keep/` is inside the repo the worktree came from, the state can't be updated from there. Keep `.keep/` in a folder above your repos, or save from a session in the main checkout.
 
 ## Commands
 
@@ -57,14 +64,13 @@ The `doc-expert` subagent answers questions from the source docs, so a chat neve
       STATE.md       Inbox, Current, Next step, Tickets, Done log, Dead ends, Gotchas, Open questions
       NOTES.md       reference, read on demand
   _archive/          closed tracks and features
-  .state/            runtime files, ignored by git
+  .state/            runtime files and each track's git stamp, ignored by git
 ```
 
-The keep folder is `.keep/` in the project root. These environment variables change the defaults:
+The keep folder is always `.keep/` in the project root. The git stamps describe this machine's checkouts, so they live in `.state/` and never travel with the state. These environment variables change the defaults:
 
 | Variable | Default | What it sets |
 | --- | --- | --- |
-| `KEEP_FOLDER` | `.keep` | The keep folder, relative to the project root or absolute |
 | `COMPACT_LIMIT` | 2 | Compactions before the agent suggests saving and starting a fresh chat |
 | `KEEP_IDLE_DAYS` | 14 | Days without a state update before a track is flagged as idle |
 | `KEEP_STATE_DAYS` | 30 | Days before runtime files of old sessions are cleared |
@@ -94,7 +100,7 @@ To use it in one project only, add this to that project's `.claude/settings.json
 
 ## Status
 
-Version 0.2.0, early. The hooks and scripts pass 80 tests on simulated hook inputs (`bash tests/hooks.test.sh`) with macOS's bash 3.2; they haven't run in a live session yet.
+Version 0.3.0, early. The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2; they haven't run in a live session yet. `tests/live-checklist.md` lists the checks for a real session.
 
 ## Credits
 

@@ -7,9 +7,9 @@ background: false
 ---
 Feature: $ARGUMENTS
 
-1. Read `.keep/<feature>/FEATURE.md` (the keep folder may be the one `KEEP_FOLDER` names) for the source docs and where decisions are recorded. If either is missing, say so and stop.
+1. Read `${CLAUDE_PROJECT_DIR}/.keep/<feature>/FEATURE.md` for the source docs and where decisions are recorded. If either is missing, say so and stop.
 2. Read the decisions first, then the source docs in full. Newer decisions override older sections.
-3. Write `.keep/<feature>/DIGEST.md`, at most about 1,200 words. Its first line is `Built from <path> at <hash of the last commit that touched it, or its modification date> on <today's date>.`, one per source doc. Then:
+3. Write `${CLAUDE_PROJECT_DIR}/.keep/<feature>/DIGEST.md`, at most about 1,200 words. Its first line is `Built from <path> at <hash of the last commit that touched it, or its modification date> on <today's date>.`, one per source doc. Then:
    1. Purpose (2–3 sentences)
    2. Phases (mark the current one)
    3. Architecture at a glance

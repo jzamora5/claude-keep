@@ -5,7 +5,7 @@ H="$(cd "$(dirname "$0")/../plugins/keep" && pwd)"
 R=$(mktemp -d "${TMPDIR:-/tmp}/keep-test.XXXXXX")
 trap 'rm -rf "$R"' EXIT
 export CLAUDE_PROJECT_DIR="$R"
-unset KEEP_FOLDER COMPACT_LIMIT
+unset COMPACT_LIMIT KEEP_IDLE_DAYS KEEP_STATE_DAYS
 K="$R/.keep"
 st="$K/.state"
 pass=0; fail=0
@@ -45,7 +45,9 @@ out=$(hook bind '{"session_id":"s2","prompt":"/start shop/research"}')
 ok "the unprefixed form binds too" '[ "$(cat "$st/track-s2" 2>/dev/null)" = shop/research ]'
 out=$(hook bind '{"session_id":"s3","prompt":"/keep:start solo"}')
 ok "a feature with one track binds to it" '[ "$(cat "$st/track-s3" 2>/dev/null)" = solo/main ]'
-for p in "/keep:start shop" "/keep:start shop/nope" "/keep:start ../shop/tickets" "/keep:start .state/x" "hello /keep:start shop/tickets" "/keep:startshop/tickets"; do
+out=$(hook bind '{"session_id":"s8","prompt":"/keep:start shop/tickets and continue"}')
+ok "words after the track are fine" '[ "$(cat "$st/track-s8" 2>/dev/null)" = shop/tickets ]'; rm -f "$st/track-s8"
+for p in "/keep:start shop" "/keep:start shop/nope" "/keep:start ../shop/tickets" "/keep:start .state/x" "hello /keep:start shop/tickets" "/keep:startshop/tickets" "/keep:start shop/tickets/extra"; do
   out=$(hook bind "{\"session_id\":\"s4\",\"prompt\":\"$p\"}")
   ok "no binding for: $p" '[ -z "$out" ] && [ ! -f "$st/track-s4" ]'
 done
@@ -62,18 +64,25 @@ stop() { hook stop "{\"session_id\":\"$1\",\"stop_hook_active\":$2}"; }
 out=$(stop s1 false);                                  ok "stop passes while clean" '[ -z "$out" ]'
 edit s1 Edit "$K/shop/FEATURE.md";                     ok "editing keep files stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Edit "$K/shop/research/STATE.md";              ok "editing another track's state stays clean" '[ ! -f "$st/dirty-s1" ]'
-edit s1 Edit "$R/.claude/settings.json";               ok "editing .claude stays clean" '[ ! -f "$st/dirty-s1" ]'
+edit s1 Edit "$R/.claude/settings.json";               ok "editing the project's .claude stays clean" '[ ! -f "$st/dirty-s1" ]'
+edit s1 Edit "$R/.claude/worktrees/w1/api/cart.js";    ok "an edit in a Claude Code worktree marks the chat dirty" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
+edit s1 Edit "$R/api/.claude/notes.md";                ok "a repo's own .claude folder counts as project files" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
 edit s1 Edit "$R/api/cart.js";                         ok "a project edit marks the chat dirty" '[ -f "$st/dirty-s1" ]'
 out=$(stop s1 false)
-ok "stop blocks while dirty, naming the state file" '[ "$(jq -r .decision <<<"$out")" = block ] && [[ "$(jq -r .reason <<<"$out")" == *".keep/shop/tickets/STATE.md"* ]]'
+ok "stop sends Stop hook feedback naming the state file" '[ "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" = Stop ] && [[ "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" == *".keep/shop/tickets/STATE.md"* ]] && [ "$(jq -r ".decision // empty" <<<"$out")" = "" ]'
 out=$(stop s1 true);                                   ok "stop_hook_active lets it stop" '[ -z "$out" ]'
 edit s1 Edit "$K/shop/tickets/STATE.md";               ok "updating the track's state clears it" '[ ! -f "$st/dirty-s1" ]'
 out=$(stop s1 false);                                  ok "stop passes after the update" '[ -z "$out" ]'
-ok "the update stamps both repos" '[ "$(cut -f1 "$K/shop/tickets/.stamp" | tr "\n" " ")" = "api web " ] && [ "$(cut -f2 "$K/shop/tickets/.stamp" | head -1)" = "$(git -C "$R/api" rev-parse HEAD)" ]'
-for t in WebFetch WebSearch Agent; do
+stamp="$st/stamp-shop@tickets"
+ok "the update stamps both repos, in .state" '[ "$(cut -f1 "$stamp" | tr "\n" " ")" = "api web " ] && [ "$(cut -f2 "$stamp" | head -1)" = "$(git -C "$R/api" rev-parse HEAD)" ] && [ ! -e "$K/shop/tickets/.stamp" ]'
+for t in WebFetch WebSearch; do
   hook track "{\"session_id\":\"s1\",\"tool_name\":\"$t\",\"tool_input\":{}}"
   ok "$t marks the chat dirty" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
 done
+hook track '{"session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"Explore"}}'
+ok "another subagent marks the chat dirty" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
+hook track '{"session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"keep:doc-expert"}}'
+ok "asking doc-expert doesn't" '[ ! -f "$st/dirty-s1" ]'
 m=$(jq -r '.hooks.PostToolUse[0].matcher' "$H/hooks/hooks.json")
 ok "the matcher passes edits and research, not Read or Bash" '[[ "Edit" =~ ^($m)$ && "Agent" =~ ^($m)$ && ! "Read" =~ ^($m)$ && ! "Bash" =~ ^($m)$ ]]'
 edit s9 Edit "$R/api/cart.js";                         ok "an unbound chat is never tracked" '[ ! -f "$st/dirty-s9" ]'
@@ -85,8 +94,18 @@ q "$R/web" checkout -b redesign
 touch "$R/web/new.txt"
 out=$(hook load '{"session_id":"s1","source":"resume"}')
 ok "a new commit is reported with its subject" '[[ "$out" == *"api (main): 1 new commit(s)"* && "$out" == *"fix cart totals"* ]]'
-ok "a branch change and new files are reported" '[[ "$out" == *"branch changed from main to redesign"* && "$out" == *"1 uncommitted file(s), was 0"* ]]'
+ok "a branch change and new files are reported" '[[ "$out" == *"branch changed from main to redesign"* && "$out" == *"uncommitted changes differ: 1 file(s) now, 0 then"* ]]'
 ok "it asks to recheck before acting" '[[ "$out" == *"Recheck files before acting"* ]]'
+q "$R/web" checkout main
+rm -f "$R/web/new.txt"
+printf 'one\n' > "$R/api/notes.txt"
+edit s1 Edit "$K/shop/tickets/STATE.md"
+printf 'two\n' > "$R/api/notes.txt"
+q "$R/api" reset --hard HEAD~1
+out=$(bash "$H/scripts/freshness.sh" "$R" shop/tickets)
+ok "a reset to an older commit is reported" '[[ "$out" == *"api (main): moved back 1 commit(s)"* ]]'
+ok "rewriting a file that was already uncommitted is reported" '[[ "$out" == *"api (main): moved back 1 commit(s); uncommitted changes differ: 1 file(s) now, 1 then"* ]]'
+ok "an unchanged repo still says so" '[[ "$out" == *"web (main): no changes"* ]]'
 
 echo "--- compaction and /clear"
 out=$(hook load '{"session_id":"s1","source":"compact"}')
@@ -108,15 +127,17 @@ done
 echo "--- size limits"
 { state shop/tickets "T-8 big" "edit web/app.js render"; for i in $(seq 1 120); do echo "- 2026-10-$((i % 28 + 1)) · T-$i · abc$i · tests passed, with a long note to fill space"; done; printf '\n## Gotchas\n- small gotcha\n'; } > "$K/shop/tickets/STATE.md"
 out=$(hook load '{"session_id":"s1","source":"resume"}')
-n=$(printf '%s' "$out" | wc -m | tr -d ' ')
+n=$(printf '%s' "$out" | wc -c | tr -d ' ')
 ok "a big state keeps Inbox, Current and Next step" '[[ "$out" == *"## Inbox"* && "$out" == *"T-8 big"* && "$out" == *"edit web/app.js render"* ]]'
 ok "the sections left out are named" '[[ "$out" == *"Not loaded, to stay under the hook output limit: Done log"* ]]'
 ok "sections that fit still load" '[[ "$out" == *"small gotcha"* ]]'
-ok "the output stays under 10,000 characters ($n)" '[ "$n" -lt 10000 ]'
-{ printf '# State: shop/tickets\n\n## Current\n'; for i in $(seq 1 400); do echo "- [assumed] a very long current line number $i that keeps going"; done; } > "$K/shop/tickets/STATE.md"
+ok "the output stays under 10,000 bytes ($n)" '[ "$n" -lt 10000 ]'
+ok "the output is valid UTF-8" 'printf "%s" "$out" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1'
+{ printf '# State: shop/tickets\n\n## Current\n'; for i in $(seq 1 400); do echo "- [assumed] a very long current line number $i that keeps going — with · marks"; done; } > "$K/shop/tickets/STATE.md"
 out=$(hook load '{"session_id":"s1","source":"resume"}')
-n=$(printf '%s' "$out" | wc -m | tr -d ' ')
-ok "even an oversized Current is cut under 10,000 characters ($n)" '[ "$n" -lt 10000 ] && [[ "$out" == *"[Cut to stay under the hook output limit"* ]]'
+n=$(printf '%s' "$out" | wc -c | tr -d ' ')
+ok "even an oversized Current is cut under 10,000 bytes ($n)" '[ "$n" -lt 10000 ] && [[ "$out" == *"[Cut to stay under the hook output limit"* ]]'
+ok "the cut falls at a line end, so no character is split" 'printf "%s" "$out" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1'
 
 echo "--- index, idle tracks and housekeeping"
 ago() { date -v-"$1"d +%Y%m%d%H%M 2>/dev/null || date -d "$1 days ago" +%Y%m%d%H%M; }
@@ -153,8 +174,11 @@ ok "the archive never shows up as a feature" '[[ "$out" != *_archive* ]] && [ "$
 mkdir -p "$K/shop/research" && cp "$K/_archive/shop/research/STATE.md" "$K/shop/research/STATE.md"
 out=$(bash "$H/scripts/archive.sh" "$R" shop/research)
 ok "closing a name already archived keeps both" '[ -d "$K/_archive/shop/research" ] && [ "$(ls -d "$K"/_archive/shop/research-* | wc -l | tr -d " ")" = 1 ]'
+edit s3 Edit "$K/solo/main/STATE.md"
+ok "(setup) solo/main has a stamp" '[ -e "$st/stamp-solo@main" ]'
 out=$(bash "$H/scripts/archive.sh" "$R" solo)
 ok "closing a feature archives all of it" '[ -f "$K/_archive/solo/FEATURE.md" ] && [ -f "$K/_archive/solo/main/STATE.md" ] && [ ! -e "$K/solo" ] && [ ! -f "$st/track-s3" ]'
+ok "closing removes the stamps" '[ ! -e "$st/stamp-solo@main" ] && [ -e "$st/stamp-shop@tickets" ]'
 for t in "../shop" "shop/nope" "_archive" "nothing"; do
   out=$(bash "$H/scripts/archive.sh" "$R" "$t" 2>&1; echo "exit=$?")
   ok "closing is refused for: $t" '[[ "$out" == *"exit=1"* ]]'
@@ -172,11 +196,39 @@ done
 
 echo "--- helper scripts"
 out=$(bash "$H/scripts/status.sh" "$R")
-ok "status lists the tracks still open" '[ "$out" = "- shop/tickets: Ticket: T-8 big" ] || [[ "$out" == "- shop/tickets:"* ]]'
-out=$(KEEP_FOLDER=elsewhere bash "$H/scripts/status.sh" "$R")
-ok "KEEP_FOLDER points at another folder" '[[ "$out" == *"No keep folder at $R/elsewhere"* ]]'
-out=$(bash "$H/scripts/freshness.sh" "$R" ".keep/shop/research")
+ok "status lists the tracks still open" '[ "$out" = "- shop/tickets: [assumed] a very long current line number one that keeps going — with · marks" ]'
+out=$(bash "$H/scripts/status.sh" "$R/api")
+ok "status says when a folder has no keep folder" '[[ "$out" == *"No keep folder at $R/api/.keep"* ]]'
+out=$(bash "$H/scripts/freshness.sh" "$R" shop/research)
 ok "freshness says when there's no stamp" '[[ "$out" == *"No git stamp yet"* ]]'
+
+echo "--- chats side by side"
+errs=$( { for i in 1 2 3 4 5 6 7 8; do bash "$H/scripts/index.sh" "$R" & done; wait; } 2>&1 )
+ok "parallel index runs don't collide" '[ -z "$errs" ] && [ -z "$(ls "$K"/INDEX.md.* 2>/dev/null)" ] && grep -q "shop/tickets" "$K/INDEX.md"'
+printf 'scratch' > "$K/.gitignore"
+bash "$H/scripts/index.sh" "$R"
+ok "appending to a .gitignore without a final newline keeps lines apart" '[ "$(cat "$K/.gitignore")" = "$(printf "scratch\nINDEX.md")" ]'
+
+echo "--- worktree sessions"
+W=$(mktemp -d "${TMPDIR:-/tmp}/keep-wt.XXXXXX")
+q "$W" init -b main; q "$W" -c user.name=t -c user.email=t@example.com commit --allow-empty -m "start"
+q "$W" worktree add -b worktree-w1 "$W/.claude/worktrees/w1"
+mkdir -p "$W/.keep/app/main"
+printf '# Feature: app\n' > "$W/.keep/app/FEATURE.md"
+state app/main "none" "none" > "$W/.keep/app/main/STATE.md"
+wt() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$W" "$H/hooks/$1.sh"; }
+wt bind '{"session_id":"w","prompt":"/keep:start app/main"}' >/dev/null
+wt track "{\"session_id\":\"w\",\"cwd\":\"$W/.claude/worktrees/w1/src\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$W/.keep/app/main/STATE.md\"}}"
+ok "in a worktree session the project repo is stamped in the worktree" '[ "$(cut -f2 "$W/.keep/.state/stamp-app@main")" = "$(git -C "$W/.claude/worktrees/w1" rev-parse HEAD)" ] && [ "$(cut -f3 "$W/.keep/.state/stamp-app@main")" = worktree-w1 ]'
+q "$W/.claude/worktrees/w1" -c user.name=t -c user.email=t@example.com commit --allow-empty -m "worktree work"
+out=$(wt load "{\"session_id\":\"w\",\"source\":\"resume\",\"cwd\":\"$W/.claude/worktrees/w1\"}")
+ok "and checked there at the next start" '[[ "$out" == *". in worktree w1 (worktree-w1): 1 new commit(s)"* && "$out" == *"worktree work"* ]]'
+rm -rf "$W"
+
+echo "--- skill commands"
+ok "nothing refers to a custom keep folder anymore" '! grep -rq KEEP_FOLDER "$H"'
+ok "skills run commands from the project root, not the working directory" '[ -z "$(grep -n "PWD" "$H"/skills/*/SKILL.md | grep -v "freshness.sh")" ]'
+ok "every skill command that touches .keep goes through the project root" '[ -z "$(grep -nE "\`(bash|git|grep)[^\`]*\.keep" "$H"/skills/*/SKILL.md | grep -v CLAUDE_PROJECT_DIR)" ]'
 
 echo "---"
 echo "passed $pass, failed $fail"

@@ -23,7 +23,7 @@ Open a new session in the sandbox folder and accept the folder trust prompt if i
 | 1 | In a new chat, ask "Which keep tracks exist?" | It answers from the start-of-chat context without reading files: `demo/research` and `demo/tickets` |
 | 2 | `/keep:start demo/tickets` | The chat is renamed `demo/tickets`, and it replies with three lines: state, Inbox and repo changes, next step |
 | 3 | `/keep:next` | It proposes T-1 with a plan, files and acceptance check, and waits; no code yet |
-| 4 | Approve T-1 | It edits `api/app.js`, then updates `STATE.md` before the turn ends; `.keep/demo/tickets/.stamp` appears |
+| 4 | Approve T-1 | It edits `api/app.js`, then gets Stop hook feedback and updates `STATE.md` before the turn ends; `.keep/.state/stamp-demo@tickets` appears |
 | 5 | Commit in `api/` (`git -C api commit -am "T-1"`), then `/clear` and ask "What changed since the state was saved?" | It reports `api (main): 1 new commit(s)` with the subject |
 | 6 | Ask it to look something up on the web | It updates `STATE.md` before finishing the turn |
 | 7 | `/compact`, then `/compact` again | After the second one it asks for `/keep:save` and a fresh chat |

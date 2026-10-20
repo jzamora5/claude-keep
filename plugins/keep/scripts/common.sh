@@ -1,12 +1,8 @@
-# Shared by the hooks and the helper scripts. Sourced, not run.
+# Shared by the hooks and the helper scripts. Sourced, not run. Functions that print paths use $root.
 
-# keep_dir <project root>: the keep folder, ".keep" unless KEEP_FOLDER names another one.
-keep_dir() {
-  case "${KEEP_FOLDER:-.keep}" in
-    /*) printf '%s' "$KEEP_FOLDER" ;;
-    *) printf '%s/%s' "$1" "${KEEP_FOLDER:-.keep}" ;;
-  esac
-}
+keep_dir() { printf '%s/.keep' "$1"; }
+
+rel() { printf '%s' "${1#"$root"/}"; }
 
 # Names are single path segments starting with a letter or digit, so "../x" can't escape the keep folder
 # and keep's own folders (".state", "_archive") never count as features or tracks.
@@ -53,3 +49,37 @@ track_rows() {
     done
   done
 }
+
+# The stamp is local runtime state: it describes this machine's checkouts, so it stays out of git.
+stamp_file() { printf '%s/.state/stamp-%s@%s' "$1" "${2%%/*}" "${2#*/}"; }
+
+# worktree_root <root> <cwd>: the Claude Code worktree (under .claude/worktrees/) a session works in, if any.
+worktree_root() {
+  local rest
+  case "$2" in
+    "$1"/.claude/worktrees/?*)
+      rest="${2#"$1"/.claude/worktrees/}"
+      printf '%s/.claude/worktrees/%s' "$1" "${rest%%/*}" ;;
+  esac
+}
+
+# repo_dir <root> <repo> <worktree>: where to read a repo listed in FEATURE.md. In a worktree session the
+# project's own repo (".") is read in the worktree, since that's the checkout being edited.
+repo_dir() {
+  if [ "$2" = "." ]; then printf '%s' "${3:-$1}"; else printf '%s/%s' "$1" "$2"; fi
+}
+
+# changes_fingerprint <dir>: changes when anything uncommitted changes, not only the number of files.
+# git diff skips untracked files, so their contents are hashed separately.
+changes_fingerprint() {
+  {
+    git -C "$1" status --porcelain 2>/dev/null
+    git -C "$1" diff HEAD 2>/dev/null
+    git -C "$1" ls-files --others --exclude-standard -z 2>/dev/null | (cd "$1" && xargs -0 git hash-object 2>/dev/null)
+  } | git hash-object --stdin 2>/dev/null
+}
+
+# lines_within <bytes>: copy whole lines from stdin while they fit, so a cut never splits a character.
+lines_within() { LC_ALL=C awk -v b="$1" '{ n += length($0) + 1; if (n > b) exit; print }'; }
+
+bytes() { printf '%s' "$1" | wc -c | tr -d ' '; }

@@ -9,22 +9,22 @@ src=$(field .source)
 title=$(field .session_title)
 limit="${COMPACT_LIMIT:-2}"
 
-# Hook output over 10,000 characters reaches Claude only as a 2,000-character preview, so everything here
-# shares one budget, and a file that doesn't fit loses whole sections, which are named, never a cut mid-way.
+# Hook output over 10,000 characters reaches Claude only as a 2,000-character preview. Everything here shares
+# one budget, counted in bytes (never fewer than characters), and cuts fall at line ends so no character
+# is split. A file that doesn't fit loses whole sections, which are named.
 budget=9300
 out=""
 add() { out+="$1"$'\n'; }
 
 # emit <title> <file> <budget> [sections that always load...]
 emit() {
-  local title="$1" f="$2" b="$3" body i n used size pre left want name s e
+  local title="$1" f="$2" b="$3" i n used size pre left want name s e
   local -a names starts ends inc
   shift 3
   add ""
   if [ ! -f "$f" ]; then add "=== $title: missing ($(rel "$f")) ==="; return; fi
   add "=== $title ($(rel "$f")) ==="
-  body=$(cat "$f")
-  if [ "${#body}" -le "$b" ]; then add "$body"; return; fi
+  if [ "$(wc -c < "$f" | tr -d ' ')" -le "$b" ]; then add "$(cat "$f")"; return; fi
 
   names=(); starts=(); ends=(); inc=()
   while IFS=$'\t' read -r name s e; do
@@ -34,14 +34,14 @@ emit() {
                 END { if (n) print name "\t" s "\t" NR }' "$f")
   n=${#names[@]}
   if [ "$n" -eq 0 ]; then
-    add "$(head -c "$b" "$f")"
-    add "[Cut at $b bytes to stay under the hook output limit: read $(rel "$f") for the rest.]"
+    add "$(lines_within "$b" < "$f")"
+    add "[Cut to stay under the hook output limit: read $(rel "$f") for the rest.]"
     return
   fi
 
   pre=""
   [ "${starts[0]}" -gt 1 ] && pre=$(sed -n "1,$(( starts[0] - 1 ))p" "$f")
-  used=${#pre}
+  used=$(bytes "$pre")
   for want in "$@"; do
     for ((i = 0; i < n; i++)); do
       [ "${names[$i]}" = "$want" ] || continue
@@ -81,7 +81,8 @@ fi
 [ "$src" = "clear" ] && rm -f "$st/compactions-$sid"
 
 # Housekeeping: runtime files of old sessions only pile up, and a resumed chat rebinds from its title.
-find "$st" -type f ! -name .gitignore -mtime +"${KEEP_STATE_DAYS:-30}" -exec rm -f {} + 2>/dev/null
+# Stamps are kept: they matter most after a long pause, and closing a track removes its own.
+find "$st" -type f ! -name .gitignore ! -name 'stamp-*' -mtime +"${KEEP_STATE_DAYS:-30}" -exec rm -f {} + 2>/dev/null
 [ -n "$binding" ] && printf '%s\n' "$binding" > "$st/track-$sid"
 bash "$here/../scripts/index.sh" "$root" 2>/dev/null
 
@@ -92,7 +93,7 @@ if [ -z "$binding" ] || [ ! -f "$keep/$binding/STATE.md" ]; then
     add "Tracks and their current work:"
     add "$list"
   fi
-  printf '%s' "${out:0:$budget}"
+  printf '%s' "$out" | lines_within "$budget"
   exit 0
 fi
 
@@ -114,13 +115,13 @@ if [ "$src" = "compact" ]; then
 fi
 
 add ""
-add "$(bash "$here/../scripts/freshness.sh" "$root" "$tdir" 2>/dev/null | head -c 1500)"
+add "$(bash "$here/../scripts/freshness.sh" "$root" "$binding" "$(field .cwd)" 2>/dev/null | head -n 25)"
 emit "FEATURE.md" "$fdir/FEATURE.md" 2000
 emit "CONTEXT.md" "$tdir/CONTEXT.md" 1500
-emit "STATE.md" "$tdir/STATE.md" $(( budget - ${#out} - 200 )) "Inbox" "Current" "Next step"
+emit "STATE.md" "$tdir/STATE.md" $(( budget - $(bytes "$out") - 200 )) "Inbox" "Current" "Next step"
 
-if [ "${#out}" -gt 9800 ]; then
-  out="${out:0:9600}"$'\n'"[Cut to stay under the hook output limit: read $(rel "$tdir")/STATE.md in full.]"
+if [ "$(bytes "$out")" -gt 9800 ]; then
+  out="$(printf '%s' "$out" | lines_within 9600)"$'\n'"[Cut to stay under the hook output limit: read $(rel "$tdir")/STATE.md in full.]"
 fi
 printf '%s' "$out"
 exit 0

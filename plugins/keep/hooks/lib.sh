@@ -16,8 +16,9 @@ if [ ! -d "$st" ]; then
 fi
 
 field() { jq -r "$1 // \"\"" <<<"$input" 2>/dev/null; }
-rel() { printf '%s' "${1#"$root"/}"; }
 
 sid=$(field .session_id)
 [[ "$sid" =~ ^[A-Za-z0-9._-]+$ ]] || exit 0
 binding=$(cat "$st/track-$sid" 2>/dev/null || true)
+# In a Claude Code worktree session, CLAUDE_PROJECT_DIR stays at the main checkout and cwd is the worktree.
+worktree=$(worktree_root "$root" "$(field .cwd)")

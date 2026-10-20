@@ -3,7 +3,7 @@
 . "$(dirname "$0")/lib.sh"
 
 prompt=$(field .prompt)
-[[ "$prompt" =~ ^/(keep:)?start[[:space:]]+([^[:space:]/]+)(/([^[:space:]/]+))? ]] || exit 0
+[[ "$prompt" =~ ^/(keep:)?start[[:space:]]+([^[:space:]/]+)(/([^[:space:]/]+))?([[:space:]]|$) ]] || exit 0
 feature="${BASH_REMATCH[2]}"
 track="${BASH_REMATCH[4]}"
 valid_name "$feature" || exit 0

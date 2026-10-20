@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # archive.sh <project root> <feature>[/<track>]: move a finished track, or a whole feature, into _archive/,
-# remove the chat bindings that point at it, and refresh the index. Nothing is deleted.
+# remove the chat bindings and git stamps that point at it, and refresh the index. The track's own files
+# are never deleted.
 set -uo pipefail
 . "$(dirname "$0")/common.sh"
 root="${1:?project root}"
 target="${2:?<feature> or <feature>/<track>}"
 keep=$(keep_dir "$root")
 st="$keep/.state"
-rel() { printf '%s' "${1#"$root"/}"; }
 
 feature="${target%%/*}"
 track=""
@@ -53,6 +53,7 @@ for b in "$st"/track-*; do
   fi
 done
 echo "Chats unbound: $unbound"
+if [ -n "$track" ]; then rm -f "$(stamp_file "$keep" "$feature/$track")"; else rm -f "$st/stamp-$feature@"*; fi
 
 bash "$(dirname "$0")/index.sh" "$root"
 echo "To restore it, move it back out of $(rel "$keep/_archive")/."

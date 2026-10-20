@@ -1,18 +1,54 @@
 {
   "hooks": {
     "UserPromptSubmit": [
-      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/bind.sh", "args": [], "timeout": 10 } ] }
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/bind.sh",
+            "args": [],
+            "timeout": 10
+          }
+        ]
+      }
     ],
     "SessionStart": [
-      { "matcher": "startup|resume|clear|compact|fork",
-        "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/load.sh", "args": [], "timeout": 15 } ] }
+      {
+        "matcher": "startup|resume|clear|compact|fork",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/load.sh",
+            "args": [],
+            "timeout": 15
+          }
+        ]
+      }
     ],
     "PostToolUse": [
-      { "matcher": "Edit|Write|MultiEdit|NotebookEdit|WebFetch|WebSearch|Agent",
-        "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/track.sh", "args": [], "timeout": 10 } ] }
+      {
+        "matcher": "Edit|Write|NotebookEdit|WebFetch|WebSearch|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/track.sh",
+            "args": [],
+            "timeout": 10
+          }
+        ]
+      }
     ],
     "Stop": [
-      { "hooks": [ { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop.sh", "args": [], "timeout": 10 } ] }
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop.sh",
+            "args": [],
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

@@ -5,12 +5,12 @@ disable-model-invocation: true
 ---
 Target: $ARGUMENTS
 
-The keep folder is `.keep/` in the project root, or the folder `KEEP_FOLDER` names.
+The keep folder is `${CLAUDE_PROJECT_DIR}/.keep/`.
 
-1. If no target was given or it doesn't exist, list the tracks (`bash "${CLAUDE_SKILL_DIR}/../../scripts/status.sh"`) and ask which one. A target without a track means the whole feature.
-2. Read the STATE.md of each track being closed and list what's still open: unchecked tickets, Inbox items, work under Current, and open questions. Also say how many chats are bound to it: `grep -lx "<feature>/<track>" .keep/.state/track-* 2>/dev/null | wc -l` (for a whole feature, `grep -l "^<feature>/"`).
+1. If no target was given or it doesn't exist, list the tracks (`bash "${CLAUDE_SKILL_DIR}/../../scripts/status.sh" "${CLAUDE_PROJECT_DIR}"`) and ask which one. A target without a track means the whole feature.
+2. Read the STATE.md of each track being closed and list what's still open: unchecked tickets, Inbox items, work under Current, and open questions. Also say how many chats are bound to it: `grep -lx "<feature>/<track>" "${CLAUDE_PROJECT_DIR}"/.keep/.state/track-* 2>/dev/null | wc -l` (for a whole feature, `grep -l "^<feature>/"`).
 3. For each open item, ask where it goes: a line in another track's Inbox (say which), a decision to record where FEATURE.md says decisions go, or nowhere. Change nothing until the user answers.
-4. Once the user approves, write those Inbox lines and decisions. If the keep folder is its own git repo, commit it: `git -C .keep add -A && git -C .keep commit -m "Before closing <target>"`.
-5. Archive it: `bash "${CLAUDE_SKILL_DIR}/../../scripts/archive.sh" "$PWD" "<target>"`. This moves the folder into `.keep/_archive/`, removes the chat bindings that point at it, and refreshes the index. Nothing is deleted.
-6. If the keep folder is its own git repo, commit again: `git -C .keep add -A && git -C .keep commit -m "Close <target>"`.
+4. Once the user approves, write those Inbox lines and decisions. If the keep folder is its own git repo, commit it: `git -C "${CLAUDE_PROJECT_DIR}/.keep" add -A && git -C "${CLAUDE_PROJECT_DIR}/.keep" commit -m "Before closing <target>"`.
+5. Archive it: `bash "${CLAUDE_SKILL_DIR}/../../scripts/archive.sh" "${CLAUDE_PROJECT_DIR}" "<target>"`. This moves the folder into `.keep/_archive/`, removes the chat bindings and git stamps that point at it, and refreshes the index. The track's own files are never deleted.
+6. If the keep folder is its own git repo, commit again with the message "Close <target>".
 7. Reply with what moved and where, how many chats were unbound, and how to restore it: move the folder back out of `_archive/`.
