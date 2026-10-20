@@ -26,15 +26,19 @@ Everything is plain Markdown in your project, and the hooks make no network or m
 - **Start.** `/keep:start <feature>/<track>` binds the chat to a track and names the chat after it. A new chat, `/clear`, a resume or a compaction then reloads the feature and the track by themselves.
 - **Stays under the limit.** Hook output over 10,000 characters reaches Claude only as a short preview, so the reload always includes the Inbox, Current and Next step, adds whole sections while they fit, and names the ones it left out.
 - **Decisions.** Each decision is recorded with the options it rejected and why, so a later chat doesn't propose them again.
+- **You always know what exists.** `.keep/INDEX.md` is regenerated at every chat start and every state save: each track, its current work, its last update and the command to start it. New features and tracks get a name you approve before they're created.
+- **Cleanup is one command.** `/keep:close` hands off what's still open, then moves the track or feature into `.keep/_archive/` and unbinds its chats; nothing is deleted. Tracks untouched for 14 days are flagged as idle, and runtime files of old sessions are cleared after 30 days.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `/keep:start <feature>/<track>` | Binds the chat to a track and names the chat after it; without arguments, lists the tracks or creates a new one from the templates |
+| `/keep:start <feature>/<track>` | Binds the chat to a track and names the chat after it; without arguments, lists the tracks or creates a new one after you approve its name |
+| `/keep:list` | Shows every track with its current work, its last update and the command to start it |
 | `/keep:next` | Proposes the next ticket with a short plan, and waits for your approval before any code |
 | `/keep:done` | Verifies the ticket, updates the feature's docs and the state, and commits after your approval |
 | `/keep:save` | Saves the state for the next chat, before `/clear` or when stopping |
+| `/keep:close <feature>[/<track>]` | Hands off what's still open, then archives the track or the whole feature |
 | `/keep:digest <feature>` | Builds a 1–2 page digest of the feature's source docs in a separate context |
 
 The `doc-expert` subagent answers questions from the source docs, so a chat never has to load them whole.
@@ -43,6 +47,7 @@ The `doc-expert` subagent answers questions from the source docs, so a chat neve
 
 ```text
 .keep/
+  INDEX.md           generated list of tracks, ignored by git
   <feature>/
     FEATURE.md       goal, source docs, where decisions go, repos, rules
     DIGEST.md        optional, built by /keep:digest
@@ -51,10 +56,18 @@ The `doc-expert` subagent answers questions from the source docs, so a chat neve
       CONTEXT.md     what the track is for
       STATE.md       Inbox, Current, Next step, Tickets, Done log, Dead ends, Gotchas, Open questions
       NOTES.md       reference, read on demand
+  _archive/          closed tracks and features
   .state/            runtime files, ignored by git
 ```
 
-The keep folder is `.keep/` in the project root. Set `KEEP_FOLDER` to use another one, and `COMPACT_LIMIT` to change how many compactions pass before the agent suggests a fresh chat (default 2).
+The keep folder is `.keep/` in the project root. These environment variables change the defaults:
+
+| Variable | Default | What it sets |
+| --- | --- | --- |
+| `KEEP_FOLDER` | `.keep` | The keep folder, relative to the project root or absolute |
+| `COMPACT_LIMIT` | 2 | Compactions before the agent suggests saving and starting a fresh chat |
+| `KEEP_IDLE_DAYS` | 14 | Days without a state update before a track is flagged as idle |
+| `KEEP_STATE_DAYS` | 30 | Days before runtime files of old sessions are cleared |
 
 ## Install
 
@@ -81,7 +94,7 @@ To use it in one project only, add this to that project's `.claude/settings.json
 
 ## Status
 
-Version 0.1.0, early. The hooks pass 59 tests on simulated hook inputs (`bash tests/hooks.test.sh`) with macOS's bash 3.2; they haven't run in a live session yet.
+Version 0.2.0, early. The hooks and scripts pass 80 tests on simulated hook inputs (`bash tests/hooks.test.sh`) with macOS's bash 3.2; they haven't run in a live session yet.
 
 ## Credits
 

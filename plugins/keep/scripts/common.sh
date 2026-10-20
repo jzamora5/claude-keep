@@ -8,8 +8,9 @@ keep_dir() {
   esac
 }
 
-# Names are single path segments that don't start with a dot, so "../x" can't escape the keep folder.
-valid_name() { [[ "$1" =~ ^[A-Za-z0-9_-][A-Za-z0-9._-]*$ ]]; }
+# Names are single path segments starting with a letter or digit, so "../x" can't escape the keep folder
+# and keep's own folders (".state", "_archive") never count as features or tracks.
+valid_name() { [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; }
 
 list_features() {
   local d
@@ -32,4 +33,23 @@ list_tracks() {
 current_line() {
   awk '/^## /{ c = ($0 ~ /^## Current/); next }
        c && $0 !~ /^[[:space:]]*(<!--.*-->)?[[:space:]]*$/ { sub(/^[[:space:]]*[-*][[:space:]]*/, ""); print; exit }' "$1" 2>/dev/null | cut -c1-140
+}
+
+# age_days <file>: whole days since the file last changed.
+age_days() {
+  local m
+  m=$(date -r "$1" +%s 2>/dev/null) || { echo 0; return; }
+  echo $(( ($(date +%s) - m) / 86400 ))
+}
+
+# track_rows <keep>: one line per track: feature, track, current work, last update, days since.
+track_rows() {
+  local f t s
+  for f in $(list_features "$1"); do
+    for t in $(list_tracks "$1" "$f"); do
+      s="$1/$f/$t/STATE.md"
+      printf '%s\t%s\t%s\t%s\t%s\n' "$f" "$t" "$(current_line "$s" | tr '\t' ' ')" \
+        "$(date -r "$s" +%Y-%m-%d 2>/dev/null)" "$(age_days "$s")"
+    done
+  done
 }

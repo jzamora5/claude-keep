@@ -118,6 +118,52 @@ out=$(hook load '{"session_id":"s1","source":"resume"}')
 n=$(printf '%s' "$out" | wc -m | tr -d ' ')
 ok "even an oversized Current is cut under 10,000 characters ($n)" '[ "$n" -lt 10000 ] && [[ "$out" == *"[Cut to stay under the hook output limit"* ]]'
 
+echo "--- index, idle tracks and housekeeping"
+ago() { date -v-"$1"d +%Y%m%d%H%M 2>/dev/null || date -d "$1 days ago" +%Y%m%d%H%M; }
+ok "the index is generated at chat start" '[ -f "$K/INDEX.md" ] && grep -q "| shop/research | Ticket: pricing question |" "$K/INDEX.md" && grep -q "/keep:start solo/main" "$K/INDEX.md"'
+bash "$H/scripts/index.sh" "$R"; bash "$H/scripts/index.sh" "$R"
+ok "git ignores the index, listed once" '[ "$(grep -cx INDEX.md "$K/.gitignore")" = 1 ]'
+touch -t 202001010000 "$K/INDEX.md"
+bash "$H/scripts/index.sh" "$R"
+ok "an unchanged index isn't rewritten" '[ "$(date -r "$K/INDEX.md" +%Y)" = 2020 ]'
+sed 's/line number 1 that/line number one that/' "$K/shop/tickets/STATE.md" > "$R/s.tmp" && mv "$R/s.tmp" "$K/shop/tickets/STATE.md"
+edit s1 Edit "$K/shop/tickets/STATE.md"
+ok "saving a changed state refreshes the index" 'grep -q "line number one that" "$K/INDEX.md"'
+touch -t "$(ago 20)" "$K/solo/main/STATE.md"
+out=$(bash "$H/scripts/status.sh" "$R")
+ok "a track untouched for 14+ days is flagged in the listing" '[[ "$out" == *"solo/main: Ticket: none (idle 20 days; close it with /keep:close solo/main)"* ]]'
+bash "$H/scripts/index.sh" "$R"
+ok "and in the index" 'grep -q "idle 20 days: \`/keep:close solo/main\`?" "$K/INDEX.md"'
+out=$(KEEP_IDLE_DAYS=30 bash "$H/scripts/status.sh" "$R")
+ok "KEEP_IDLE_DAYS moves the threshold" '[[ "$out" != *idle* ]]'
+printf 'x\n' > "$st/track-old"; touch -t "$(ago 40)" "$st/track-old"
+printf 'x\n' > "$st/track-fresh"
+touch -t "$(ago 40)" "$st/track-s1"
+out=$(hook load '{"session_id":"s1","source":"resume"}')
+ok "old session files are cleared at chat start" '[ ! -f "$st/track-old" ] && [ -f "$st/track-fresh" ] && [ -f "$st/.gitignore" ]'
+ok "the current chat keeps its binding even if its file was old" '[ "$(cat "$st/track-s1" 2>/dev/null)" = shop/tickets ] && [[ "$out" == *"Active track: shop/tickets"* ]]'
+
+echo "--- closing"
+out=$(bash "$H/scripts/archive.sh" "$R" shop/research)
+ok "closing a track moves it into the archive" '[ -f "$K/_archive/shop/research/STATE.md" ] && [ ! -e "$K/shop/research" ] && [[ "$out" == *"Moved .keep/shop/research to .keep/_archive/shop/research"* ]]'
+ok "both chats bound to it are unbound, others keep theirs" '[ ! -f "$st/track-s2" ] && [ ! -f "$st/track-s5" ] && [ -f "$st/track-s1" ] && [[ "$out" == *"Chats unbound: 2"* ]]'
+ok "the index drops it and counts the archive" '! grep -q "shop/research" "$K/INDEX.md" && grep -q "Archived tracks: 1" "$K/INDEX.md"'
+out=$(bash "$H/scripts/status.sh" "$R")
+ok "the archive never shows up as a feature" '[[ "$out" != *_archive* ]] && [ "$(printf "%s\n" "$out" | wc -l | tr -d " ")" = 2 ]'
+mkdir -p "$K/shop/research" && cp "$K/_archive/shop/research/STATE.md" "$K/shop/research/STATE.md"
+out=$(bash "$H/scripts/archive.sh" "$R" shop/research)
+ok "closing a name already archived keeps both" '[ -d "$K/_archive/shop/research" ] && [ "$(ls -d "$K"/_archive/shop/research-* | wc -l | tr -d " ")" = 1 ]'
+out=$(bash "$H/scripts/archive.sh" "$R" solo)
+ok "closing a feature archives all of it" '[ -f "$K/_archive/solo/FEATURE.md" ] && [ -f "$K/_archive/solo/main/STATE.md" ] && [ ! -e "$K/solo" ] && [ ! -f "$st/track-s3" ]'
+for t in "../shop" "shop/nope" "_archive" "nothing"; do
+  out=$(bash "$H/scripts/archive.sh" "$R" "$t" 2>&1; echo "exit=$?")
+  ok "closing is refused for: $t" '[[ "$out" == *"exit=1"* ]]'
+done
+out=$(hook bind '{"session_id":"s7","prompt":"/keep:start _archive/shop"}')
+ok "an archived track can't be bound" '[ -z "$out" ] && [ ! -f "$st/track-s7" ]'
+edit s1 Edit "$K/_archive/shop/research/STATE.md"
+ok "editing the archive doesn't mark the chat dirty" '[ ! -f "$st/dirty-s1" ]'
+
 echo "--- bad input"
 for h in bind load track stop; do
   out=$(printf 'not json' | "$H/hooks/$h.sh"; echo "exit=$?")
@@ -126,7 +172,7 @@ done
 
 echo "--- helper scripts"
 out=$(bash "$H/scripts/status.sh" "$R")
-ok "status lists every track" '[ "$(printf "%s\n" "$out" | wc -l | tr -d " ")" = 3 ]'
+ok "status lists the tracks still open" '[ "$out" = "- shop/tickets: Ticket: T-8 big" ] || [[ "$out" == "- shop/tickets:"* ]]'
 out=$(KEEP_FOLDER=elsewhere bash "$H/scripts/status.sh" "$R")
 ok "KEEP_FOLDER points at another folder" '[[ "$out" == *"No keep folder at $R/elsewhere"* ]]'
 out=$(bash "$H/scripts/freshness.sh" "$R" ".keep/shop/research")

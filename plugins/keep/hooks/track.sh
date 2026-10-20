@@ -36,7 +36,7 @@ write_stamp() {
 
 fp=$(field '.tool_input.file_path // .tool_input.notebook_path')
 case "$fp" in
-  "$tdir/STATE.md") rm -f "$st/dirty-$sid"; write_stamp ;;
+  "$tdir/STATE.md") rm -f "$st/dirty-$sid"; write_stamp; bash "$(dirname "$0")/../scripts/index.sh" "$root" 2>/dev/null ;;
   "$keep"/*|*/.claude/*|"") ;;
   *) touch "$st/dirty-$sid" ;;
 esac

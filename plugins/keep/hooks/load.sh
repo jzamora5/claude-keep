@@ -80,6 +80,11 @@ if [ -z "$binding" ] && [[ "$title" == */* ]] && valid_name "${title%%/*}" && va
 fi
 [ "$src" = "clear" ] && rm -f "$st/compactions-$sid"
 
+# Housekeeping: runtime files of old sessions only pile up, and a resumed chat rebinds from its title.
+find "$st" -type f ! -name .gitignore -mtime +"${KEEP_STATE_DAYS:-30}" -exec rm -f {} + 2>/dev/null
+[ -n "$binding" ] && printf '%s\n' "$binding" > "$st/track-$sid"
+bash "$here/../scripts/index.sh" "$root" 2>/dev/null
+
 if [ -z "$binding" ] || [ ! -f "$keep/$binding/STATE.md" ]; then
   add "No keep track is bound to this chat. The user binds one with /keep:start <feature>/<track>."
   list=$(bash "$here/../scripts/status.sh" "$root" 2>/dev/null)
