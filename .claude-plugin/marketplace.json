@@ -1,0 +1,14 @@
+{
+  "name": "claude-keep",
+  "description": "Keep an AI coding agent's working state current across chats, organized by feature.",
+  "owner": {
+    "name": "jzamora5"
+  },
+  "plugins": [
+    {
+      "name": "keep",
+      "source": "./plugins/keep",
+      "description": "Feature and track state for Claude Code: kept current as the agent works, reloaded in every new chat."
+    }
+  ]
+}

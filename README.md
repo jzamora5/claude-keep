@@ -2,15 +2,72 @@
 
 Keep an AI coding agent's working state current across chats, organized by feature.
 
-Long chats lose precision, and starting a new one means explaining again where things stand. `keep` is a Claude Code plugin that holds that state in a few Markdown files per feature, makes the agent keep them current as it works, and loads them into every new chat. You stay in control: it never runs work on its own.
+Long chats lose precision, and starting a new one means explaining again where things stand. `keep` is a Claude Code plugin that holds that state in a few Markdown files per feature, makes the agent keep them current as it works, and loads them into every new chat. You stay in control: it never runs work on its own, and every ticket and commit waits for your approval.
 
 ## How it works
 
-- **Features and tracks.** Each feature, a body of work with its own source documents, lives in `.keep/<feature>/`. Inside it, each track (tickets, a research topic, reviews) has its own state, so several chats can work on one feature at the same time.
-- **Always current.** A hook won't let a turn end until the track's `STATE.md` is updated, whenever the chat edited files or did research.
-- **Picks up where it stopped.** A new chat, `/clear` or a compaction reloads the feature and the track. The state is stamped with each repo's commit, so the next chat sees what changed since.
-- **Decisions travel.** A decision that affects another track goes into that track's Inbox.
+- **Features and tracks.** A feature is a body of work with its own source docs (an RFC, PRD, design doc or spec). It lives in `.keep/<feature>/`. Inside it, each track (tickets, a research topic, reviews) has its own state, so several chats can work on one feature at the same time.
+- **Always current.** When a chat edits files or does research, a Stop hook won't let the turn end until the track's `STATE.md` is updated.
+- **Picks up where it stopped.** A new chat, `/clear`, a resume or a compaction reloads the feature and the track. Saving `STATE.md` stamps each of the feature's repos with its commit, so the next chat sees which commits, branches and uncommitted files changed since.
+- **Stays under the limit.** Hook output over 10,000 characters reaches Claude only as a short preview, so the reload always includes the Inbox, Current and Next step, adds whole sections while they fit, and names the ones it left out.
+- **Decisions travel.** Decisions are recorded with the options they rejected, and a decision that affects another track goes into that track's Inbox.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `/keep:start <feature>/<track>` | Binds the chat to a track and names the chat after it; without arguments, lists the tracks or creates a new one from the templates |
+| `/keep:next` | Proposes the next ticket with a short plan, and waits for your approval before any code |
+| `/keep:done` | Verifies the ticket, updates the feature's docs and the state, and commits after your approval |
+| `/keep:save` | Saves the state for the next chat, before `/clear` or when stopping |
+| `/keep:digest <feature>` | Builds a 1–2 page digest of the feature's source docs in a separate context |
+
+The `doc-expert` subagent answers questions from the source docs, so a chat never has to load them whole.
+
+## Files
+
+```text
+.keep/
+  <feature>/
+    FEATURE.md       goal, source docs, where decisions go, repos, rules
+    DIGEST.md        optional, built by /keep:digest
+    DECISIONS.md     optional, when decisions aren't recorded in a source doc
+    <track>/
+      CONTEXT.md     what the track is for
+      STATE.md       Inbox, Current, Next step, Tickets, Done log, Dead ends, Gotchas, Open questions
+      NOTES.md       reference, read on demand
+  .state/            runtime files, ignored by git
+```
+
+The keep folder is `.keep/` in the project root. Set `KEEP_FOLDER` to use another one, and `COMPACT_LIMIT` to change how many compactions pass before the agent suggests a fresh chat (default 2).
+
+## Install
+
+Requires bash, `jq` and `git`.
+
+```bash
+claude plugin marketplace add jzamora5/claude-keep
+```
+
+```bash
+claude plugin install keep@claude-keep
+```
+
+To use it in one project only, add this to that project's `.claude/settings.json`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "claude-keep": { "source": { "source": "github", "repo": "jzamora5/claude-keep" } }
+  },
+  "enabledPlugins": { "keep@claude-keep": true }
+}
+```
 
 ## Status
 
-Early work in progress; not ready to install yet.
+Version 0.1.0, early. The hooks pass 59 tests on simulated hook inputs (`bash tests/hooks.test.sh`) with macOS's bash 3.2; they haven't run in a live session yet.
+
+## Credits
+
+Ideas borrowed from other handoff tools: verified versus assumed state and dead ends ([blader/baton](https://github.com/blader/baton)), a commit stamp and a next step that names a file ([Dereknalox123/claude-code-baton](https://github.com/Dereknalox123/claude-code-baton)), binding a session to a named workstream ([mattpollak/relay](https://github.com/mattpollak/relay)), naming what a reload left out ([nickthelegend/loom](https://github.com/nickthelegend/loom)), the decision format ([EdytaKucharska/keel](https://github.com/EdytaKucharska/keel)), writing rules for checkpoints ([arcAman07/claude-cairn](https://github.com/arcAman07/claude-cairn)), and loading whole sections under the cap ([eugeniughelbur/obsidian-second-brain](https://github.com/eugeniughelbur/obsidian-second-brain)). The approach follows Anthropic's [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents).

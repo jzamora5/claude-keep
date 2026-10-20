@@ -1,0 +1,17 @@
+{
+  "name": "keep",
+  "version": "0.1.0",
+  "description": "Feature and track state for Claude Code: kept current as the agent works, reloaded in every new chat.",
+  "author": {
+    "name": "jzamora5"
+  },
+  "homepage": "https://github.com/jzamora5/claude-keep",
+  "repository": "https://github.com/jzamora5/claude-keep",
+  "keywords": [
+    "state",
+    "handoff",
+    "context",
+    "compaction",
+    "workflow"
+  ]
+}
