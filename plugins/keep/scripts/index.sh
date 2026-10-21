@@ -23,7 +23,7 @@ trap 'rm -f "$tmp"' EXIT
   if [ -z "$rows" ]; then
     echo 'No tracks yet. Create one with `/keep:start`.'
   else
-    echo "| Track | Current work | Last update | Start it with |"
+    echo "| Track | Current work or goal | Last update | Start it with |"
     echo "| --- | --- | --- | --- |"
     while IFS=$'\t' read -r f t cur updated days; do
       note=""

@@ -36,7 +36,7 @@ write_stamp() {
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$r" \
       "$(git -C "$dir" rev-parse HEAD 2>/dev/null)" \
       "$(git -C "$dir" branch --show-current 2>/dev/null)" \
-      "$(git -C "$dir" status --porcelain 2>/dev/null | wc -l | tr -d ' ')" \
+      "$(repo_status "$dir" | wc -l | tr -d ' ')" \
       "$(changes_fingerprint "$dir")" \
       "$(date -u +%Y-%m-%dT%H:%MZ)" >> "$tmp"
   done < <(repos_of "$keep/${binding%%/*}/FEATURE.md")
@@ -47,12 +47,13 @@ fp=$(field '.tool_input.file_path // .tool_input.notebook_path')
 case "$fp" in
   "$tdir/STATE.md")
     rm -f "$st/dirty-$sid"
+    touch "$st/saved-$sid"
     write_stamp
     bash "$(dirname "$0")/../scripts/index.sh" "$root" 2>/dev/null ;;
   # Claude Code puts worktrees under .claude/worktrees/, so edits there are project edits.
   "$root"/.claude/worktrees/*) touch "$st/dirty-$sid" ;;
   # Claude's own files (settings, memory, plans) aren't project work.
   "$keep"/*|"$root"/.claude/*|"${HOME:-/nonexistent}"/.claude/*|"") ;;
-  *) touch "$st/dirty-$sid" ;;
+  "$root"/*) touch "$st/dirty-$sid" ;;
 esac
 exit 0

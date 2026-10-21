@@ -87,21 +87,25 @@ find "$st" -type f ! -name .gitignore ! -name 'stamp-*' -mtime +"${KEEP_STATE_DA
 bash "$here/../scripts/index.sh" "$root" 2>/dev/null
 
 if [ -z "$binding" ] || [ ! -f "$keep/$binding/STATE.md" ]; then
-  add "No keep track is bound to this chat. The user binds one with /keep:start, followed by the name shown for each track."
+  add "No keep track is bound to this chat."
   list=$(bash "$here/../scripts/status.sh" "$root" 2>/dev/null)
   if [[ "$list" == "- "* ]]; then
-    add "Tracks, their current work and how to start each:"
+    add "Tracks, their current work or goal, and how to start each:"
     add "$list"
-    add "In your first reply, if the user's message is about one of these tracks, name it and give its exact start command from the list; if it could be more than one, list those. Only suggest: don't bind a track or record work in one until the user runs the command. If the message is about none of them, just answer it."
   fi
+  add "The first time a message of the user starts work (a change, research or a ticket, not a quick question), ask once whether to keep that work in a track: name the matching track, list the candidates if it could be more than one, or offer to create a track if none matches. Act only after the user agrees, by running the keep start skill (/keep:start) with the track's name, or with no name to create one, and then carry on with what they asked. Otherwise just answer."
   printf '%s' "$out" | lines_within "$budget"
   exit 0
 fi
 
 fdir="$keep/${binding%%/*}"
 tdir="$keep/$binding"
-add "Active track: $binding. Its files: $(rel "$fdir")/FEATURE.md, plus CONTEXT.md, STATE.md and NOTES.md in $(rel "$tdir")/."
-add "STATE.md is the handoff for the next chat and must stay current."
+short=$(start_arg "$keep" "${binding%%/*}" "${binding#*/}")
+add "Active track: $binding (a new chat starts it with /keep:start $short). Its files: $(rel "$fdir")/FEATURE.md, plus CONTEXT.md, STATE.md and NOTES.md in $(rel "$tdir")/."
+add "STATE.md is the handoff for the next chat and must stay current. Record each decision as soon as it's made, with the options rejected and why, where FEATURE.md says decisions go."
+if [ -n "$worktree" ]; then
+  add "This chat runs in a Claude Code worktree, and Claude Code blocks edits to the main checkout, where $(rel "$keep")/ is. So this chat can read the track but can't update STATE.md, and isn't asked to. Say so in your first reply, so the user knows this chat's work won't reach the track."
+fi
 
 if [ "$src" = "compact" ]; then
   c=$(cat "$st/compactions-$sid" 2>/dev/null || true)
@@ -111,7 +115,7 @@ if [ "$src" = "compact" ]; then
   add "This chat has been compacted $n time(s); the files below are authoritative over the summary."
   add "Re-read the files FEATURE.md and CONTEXT.md list under \"Read on start\"; the summary may have dropped them."
   if [ "$n" -ge "$limit" ]; then
-    add "After $limit compactions: finish the current small step, run /keep:save, then tell the user to /clear, or to start a new chat with /keep:start $binding."
+    add "After $limit compactions: finish the current small step, run /keep:save, then tell the user to /clear, or to start a new chat with /keep:start $short."
   fi
 fi
 

@@ -51,6 +51,46 @@ start_arg() {
   printf '%s' "$best"
 }
 
+# resolve_name <keep> <name>: the track a /keep:start name means, as <feature>/<track>. Prints nothing when the
+# name matches no track or several.
+resolve_name() {
+  local f="${2%%/*}" t=""
+  [[ "$2" == */* ]] && t="${2#*/}"
+  if [ -z "$t" ]; then
+    t=$(resolve_target "$1" "$f")
+    [ -n "$t" ] || return 0
+    f="${t%%/*}"; t="${t#*/}"
+  fi
+  valid_name "$f" && valid_name "$t" && [ -f "$1/$f/$t/STATE.md" ] && printf '%s/%s' "$f" "$t"
+  return 0
+}
+
+# bind_chat <keep> <session id> <name>: binds the chat to the track and prints it. Returns 1 when the name
+# matches no track or several. Returns 2, printing the current track, when the chat has unsaved work on another
+# track: switching would leave that work to be saved into the wrong one.
+bind_chat() {
+  local target before
+  target=$(resolve_name "$1" "$3")
+  [ -n "$target" ] || return 1
+  before=$(cat "$1/.state/track-$2" 2>/dev/null || true)
+  if [ -n "$before" ] && [ "$before" != "$target" ] && [ -f "$1/.state/dirty-$2" ]; then
+    printf '%s' "$before"
+    return 2
+  fi
+  printf '%s\n' "$target" > "$1/.state/track-$2"
+  printf '%s' "$target"
+}
+
+# unbind_chat <keep> <session id>: unbinds the chat, dropping its unsaved-work marker, and prints the chat's
+# new name. "<feature>/<track> (unbound)" never reads as a track, so the chat isn't rebound by its name.
+unbind_chat() {
+  local before
+  before=$(cat "$1/.state/track-$2" 2>/dev/null || true)
+  [ -n "$before" ] || return 0
+  rm -f "$1/.state/track-$2" "$1/.state/dirty-$2" "$1/.state/saved-$2"
+  printf '%s (unbound)' "$before"
+}
+
 # current_line <STATE.md>: the first entry under "## Current", skipping comments and blank lines.
 current_line() {
   awk '/^## /{ c = ($0 ~ /^## Current/); next }
@@ -64,14 +104,24 @@ age_days() {
   echo $(( ($(date +%s) - m) / 86400 ))
 }
 
-# track_rows <keep>: one line per track: feature, track, current work, last update, days since.
+# goal_line <CONTEXT.md>: the text of its **Goal:** line, unless that's still the template's placeholder.
+goal_line() {
+  sed -n 's/^\*\*Goal:\*\*[[:space:]]*//p' "$1" 2>/dev/null | head -1 | grep -v '^<' | cut -c1-140
+}
+
+# track_rows <keep>: one line per track: feature, track, current work (or its goal when nothing is in flight,
+# so a new chat can still tell what the track is for), last update, days since.
 track_rows() {
-  local f t s
+  local f t s work goal
   for f in $(list_features "$1"); do
     for t in $(list_tracks "$1" "$f"); do
       s="$1/$f/$t/STATE.md"
-      printf '%s\t%s\t%s\t%s\t%s\n' "$f" "$t" "$(current_line "$s" | tr '\t' ' ')" \
-        "$(date -r "$s" +%Y-%m-%d 2>/dev/null)" "$(age_days "$s")"
+      work=$(current_line "$s" | tr '\t' ' ')
+      if [[ "$(printf '%s' "$work" | tr 'A-Z' 'a-z')" =~ ^((ticket:[[:space:]]*)?none([^a-z]|$)|$) ]]; then
+        goal=$(goal_line "$1/$f/$t/CONTEXT.md" | tr '\t' ' ')
+        [ -n "$goal" ] && work="Goal: $goal"
+      fi
+      printf '%s\t%s\t%s\t%s\t%s\n' "$f" "$t" "$work" "$(date -r "$s" +%Y-%m-%d 2>/dev/null)" "$(age_days "$s")"
     done
   done
 }
@@ -95,16 +145,20 @@ repo_dir() {
   if [ "$2" = "." ]; then printf '%s' "${3:-$1}"; else printf '%s/%s' "$1" "$2"; fi
 }
 
+# repo_status <dir>: git status of a repo, leaving out keep's own folder, which isn't project work even when
+# it sits inside the project's repo.
+repo_status() { git -C "$1" status --porcelain -- ':(exclude).keep' 2>/dev/null; }
+
 # changes_fingerprint <dir>: changes when tracked changes or the list of untracked files changes, not only
 # the number of files. Untracked contents aren't hashed, so a large untracked file can't slow the hooks;
 # untracked_newer covers rewrites of those.
 changes_fingerprint() {
-  { git -C "$1" status --porcelain 2>/dev/null; git -C "$1" diff HEAD 2>/dev/null; } | git hash-object --stdin 2>/dev/null
+  { repo_status "$1"; git -C "$1" diff HEAD -- ':(exclude).keep' 2>/dev/null; } | git hash-object --stdin 2>/dev/null
 }
 
 # untracked_newer <dir> <file>: the first untracked file modified after <file>, if any.
 untracked_newer() {
-  git -C "$1" ls-files --others --exclude-standard -z 2>/dev/null \
+  git -C "$1" ls-files --others --exclude-standard -z -- ':(exclude).keep' 2>/dev/null \
     | (cd "$1" && xargs -0 sh -c '[ "$#" -gt 0 ] || exit 0; find "$@" -prune -newer "$0" -print' "$2" 2>/dev/null) | head -1
 }
 

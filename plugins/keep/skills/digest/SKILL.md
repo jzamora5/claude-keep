@@ -1,6 +1,6 @@
 ---
 name: digest
-description: Create or refresh a feature's DIGEST.md, a 1–2 page summary of its source docs that every track reads at start. Reads the full source docs in a separate context. Run as /keep:digest <feature>.
+description: Create or refresh a keep feature's DIGEST.md, a 1–2 page summary of its source docs that every track reads at start. Reads the full source docs in a separate context. Run as /keep:digest <feature>.
 context: fork
 agent: general-purpose
 background: false

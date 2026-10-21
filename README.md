@@ -14,39 +14,41 @@ It's harder when you own a whole feature rather than one ticket. The build, rese
 
 **From session handoff tools**, which write a summary when you ask for one, at the end of a session or just before a compaction, for one session or one repo:
 
-- **It's enforced, not remembered.** When a chat edits files or does research, a hook sends it back to update the state before the turn ends. Nothing depends on the agent remembering, or on you running a command before you stop. [What the gate covers](#what-the-gate-covers) has the details.
+- **It's enforced, not remembered.** When a chat edits files or does research, a hook sends it back to update the state when the turn ends, at most once every 15 minutes. Nothing depends on the agent remembering, or on you running a command before you stop. [What the gate covers](#what-the-gate-covers) has the details.
 - **It's organized by feature, with tracks.** Several chats can work on one feature at once (tickets, a research topic, reviews), share its source docs, and pass decisions to each other through an Inbox.
 - **It's checked against reality.** Each save stamps the feature's repos with their commits, so the next chat sees what changed since (new commits, a different branch, uncommitted files) before it trusts the state.
 
-Everything is plain Markdown in your project, and the hooks make no network or model calls. You stay in control: keep never runs work on its own, and every ticket and commit waits for your approval.
+Everything is plain Markdown in your project, and the hooks make no network or model calls. You stay in control: keep never starts work on its own, and every ticket and every code commit waits for your approval. If you give `.keep/` its own history, keep commits the state there as it saves.
 
 ## How it works
 
 - **Files.** A feature lives in `.keep/<feature>/` with a `FEATURE.md` that points to its source docs (an RFC, PRD, design doc or spec) instead of copying them. Each track has a `CONTEXT.md` (what it's for), a `STATE.md` (where it stands) and a `NOTES.md` (reference).
-- **Start.** `/keep:start <feature>/<track>` binds the chat to a track and names the chat after it. A single name works when only one track matches it, such as `/keep:start terms`. You don't need to remember names: in a chat that isn't bound yet, describe what you want to work on, and the agent's first reply names the matching track and its start command. It only suggests; nothing is bound until you run the command. A new chat, `/clear`, a resume or a compaction then reloads the feature and the track by themselves.
-- **Opt in mid-chat.** keep does nothing in a chat until you bind it, so an ongoing chat can opt in at any point with `/keep:start`. If no track fits, add a track to an existing feature instead of creating a feature. When you bind a chat that already has work in it, the agent offers `/keep:save` so what the chat already knows reaches the track.
+- **Start.** In a new chat, say what you want to work on. When a message starts work (not a quick question), the agent names the matching track, or offers to create one, and asks once whether to keep the work there; say yes and it carries on with your request. Nothing is bound or created until you agree. A ticket still waits for your approval of its plan. You can also type `/keep:start <feature>/<track>`, or a single name when only one track matches it, with your request after it: `/keep:start terms check the new vendor doc`. The chat is named after the track, and `/clear`, a resume or a compaction then reloads the feature and the track by themselves.
+- **Opt in mid-chat.** keep does nothing in a chat until you bind it, so an ongoing chat can opt in at any point: ask the agent to work on a track or to save the chat to keep, or type `/keep:start`. If no track fits, the agent proposes a new track, in an existing feature when one fits. When you bind a chat that already has work in it, the agent offers `/keep:save` so what the chat already knows reaches the track.
 - **Stays under the limit.** Hook output over 10,000 characters reaches Claude only as a short preview, so the reload always includes the Inbox, Current and Next step, adds whole sections while they fit, and names the ones it left out.
-- **Decisions.** Each decision is recorded with the options it rejected and why, so a later chat doesn't propose them again.
-- **You always know what exists.** `.keep/INDEX.md` is regenerated at every chat start and every state save: each track, its current work, its last update and the command to start it. New features and tracks get a name you approve before they're created.
+- **Decisions.** Each decision is recorded when it's made, with the options it rejected and why, so a later chat doesn't propose them again. The save reminder asks for any decision not recorded yet.
+- **You always know what exists.** `.keep/INDEX.md` is regenerated at every chat start and every state save: each track, its current work (or its goal when nothing is in flight), its last update and the command to start it. A new track is proposed in one message, with its name, its goal and, for a new feature, the repos and settings the agent found; nothing is created until you confirm or correct it.
 - **Cleanup is one command.** `/keep:close` hands off what's still open, then moves the track or feature into `.keep/_archive/` and unbinds its chats; the track's own files are never deleted. Tracks untouched for 14 days are flagged as idle, and runtime files of old sessions are cleared after 30 days.
 
 ## What the gate covers
 
-- **Counted:** edits with Edit, Write and NotebookEdit to files in the project, including Claude Code worktrees under `.claude/worktrees/`; web fetches and searches; and subagents, except keep's `doc-expert`, which only reads the feature's own source docs. Edits inside `.keep/`, to the project's own `.claude/` settings, and to Claude's files in `~/.claude/` (memory, plans) aren't counted.
+- **Counted:** edits with Edit, Write and NotebookEdit to files in the project folder, including Claude Code worktrees under `.claude/worktrees/`; web fetches and searches; and subagents, except keep's `doc-expert`, which only reads the feature's own source docs. Edits inside `.keep/`, to the project's own `.claude/` settings, and to files outside the project folder, such as scratch files and Claude's files in `~/.claude/` (memory, plans), aren't counted.
 - **Not counted:** files changed through shell commands (`sed -i`, code generators, `git checkout`). Run `/keep:save` after work like that.
-- **How hard it pushes:** the Stop hook sends the chat back once per turn, as Stop hook feedback rather than an error. If the state still isn't updated, it asks again at the end of the next turn, even one that only answered a question, until the state is saved.
-- **Worktree sessions:** freshness checks the worktree the session works in. In a `--worktree` or `EnterWorktree` session, Claude Code blocks edits to the main checkout, so if `.keep/` is inside the repo the worktree came from, the state can't be updated from there. Keep `.keep/` in a folder above your repos, or save from a session in the main checkout.
+- **How hard it pushes:** at the end of a turn after counted work, the Stop hook sends the chat back to update Current and Next step in STATE.md and record any new decision, as Stop hook feedback rather than an error. It asks at most once every 15 minutes after this chat's last save; another chat editing the same STATE.md, for example to add an Inbox line, doesn't reset that clock. So a chat's first working turn saves, and after that a chat that ends loses at most the last 15 minutes of reasoning; its code changes still show up in the next chat's freshness check. Once that time has passed, it asks at the end of every turn until the state is saved, even a turn that only answered a question. `KEEP_SAVE_MINUTES=0` asks after every working turn.
+- **Worktree sessions:** freshness checks the worktree the session works in. In a `--worktree` or `EnterWorktree` session, Claude Code blocks edits to the main checkout, so if `.keep/` is inside the repo the worktree came from, the chat can read its track but can't save it. keep doesn't ask it to, and the agent says so in its first reply. Keep `.keep/` in a folder above your repos, or work on the track from a session in the main checkout.
 
 ## Commands
 
+You only need `/keep:start`, or just say what you want to work on. The agent brings up the others when they're due: `/keep:save` at the compaction limit and when a chat opts in midway, `/keep:digest` when a feature has source docs but no digest, and `/keep:close` appears next to idle tracks.
+
 | Command | What it does |
 | --- | --- |
-| `/keep:start <feature>/<track>` | Binds the chat to a track and names the chat after it; a single name works when only one track matches it. Without arguments, lists the tracks or creates a new one after you approve its name |
-| `/keep:list` | Shows every track with its current work, its last update and the command to start it |
+| `/keep:start <feature>/<track>` | Binds the chat to a track and names the chat after it; a single name works when only one track matches it, and your request can follow it. The agent runs it too, once you agree to a track it suggested. Without a name, lists the tracks, or proposes a new one and creates it once you confirm. `/keep:start off` unbinds the chat. A chat with unsaved work on one track saves it before switching to another |
+| `/keep:list` | Shows every track with its current work or goal, its last update and the command to start it |
 | `/keep:next` | Proposes the next ticket with a short plan, and waits for your approval before any code |
-| `/keep:done` | Verifies the ticket, updates the feature's docs and the state, and commits after your approval |
-| `/keep:save` | Saves the state for the next chat, before `/clear` or when stopping |
-| `/keep:close <feature>[/<track>]` | Hands off what's still open, then archives the track or the whole feature |
+| `/keep:done` | Verifies the ticket and updates the feature's docs; after your approval, commits and marks the ticket done in the state. A failed check stops it |
+| `/keep:save` | Saves the state for the next chat, before `/clear` or when stopping. In a chat that isn't bound yet, it asks which track first |
+| `/keep:close <feature>[/<track>]` | Hands off what's still open, then archives the track or the whole feature. The agent runs it too when you ask it to close one |
 | `/keep:digest <feature>` | Builds a 1–2 page digest of the feature's source docs in a separate context |
 
 The `doc-expert` subagent answers questions from the source docs, so a chat never has to load them whole.
@@ -68,10 +70,11 @@ The `doc-expert` subagent answers questions from the source docs, so a chat neve
   .state/            runtime files and each track's git stamp, ignored by git
 ```
 
-The keep folder is always `.keep/` in the project root. The git stamps describe this machine's checkouts, so they live in `.state/` and never travel with the state. These environment variables change the defaults:
+The keep folder is always `.keep/` in the project root. The git stamps describe this machine's checkouts, so they live in `.state/` and never travel with the state. Freshness leaves `.keep/` out when it checks a repo, so the state's own files never count as code changes. When it creates `.keep/`, the agent offers two separate choices: keeping `.keep/` out of the project's git, through the local exclude file that isn't shared, and giving `.keep/` its own history, which keep then commits to as it saves. These environment variables change the defaults:
 
 | Variable | Default | What it sets |
 | --- | --- | --- |
+| `KEEP_SAVE_MINUTES` | 15 | Minutes between the Stop hook's requests to update STATE.md; 0 asks after every working turn |
 | `COMPACT_LIMIT` | 2 | Compactions before the agent suggests saving and starting a fresh chat |
 | `KEEP_IDLE_DAYS` | 14 | Days without a state update before a track is flagged as idle |
 | `KEEP_STATE_DAYS` | 30 | Days before runtime files of old sessions are cleared |
@@ -99,9 +102,19 @@ To use it in one project only, add this to that project's `.claude/settings.json
 }
 ```
 
+Then type `/keep:start` in your project and describe what you're working on: the agent proposes the first track. After that, it offers the right track whenever a chat starts work.
+
+keep's skills run their own scripts without asking. Saving STATE.md outside a skill, when the reminder asks for it, is a normal file edit, so with default permissions it asks each time. To allow edits to `.keep/` in a project, add this to its `.claude/settings.json`:
+
+```json
+{
+  "permissions": { "allow": ["Edit(/.keep/**)"] }
+}
+```
+
 ## Status
 
-Version 0.4.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2; they haven't run in a live session yet. `tests/live-checklist.md` lists the checks for a real session.
+Version 0.5.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2; they haven't run in a live session yet. `tests/live-checklist.md` lists the checks for a real session.
 
 ## Credits
 

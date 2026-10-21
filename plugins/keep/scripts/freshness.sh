@@ -39,7 +39,7 @@ while IFS=$'\t' read -r repo hash branch dirty fingerprint _; do
   fi
   [ "$now_branch" != "$branch" ] && changes+=("branch changed from ${branch:-detached} to ${now_branch:-detached}")
   if [ "$(changes_fingerprint "$dir")" != "$fingerprint" ] || [ -n "$(untracked_newer "$dir" "$stamp")" ]; then
-    changes+=("uncommitted changes differ: $(git -C "$dir" status --porcelain 2>/dev/null | wc -l | tr -d ' ') file(s) now, $dirty then")
+    changes+=("uncommitted changes differ: $(repo_status "$dir" | wc -l | tr -d ' ') file(s) now, $dirty then")
   fi
   if [ "${#changes[@]}" -eq 0 ]; then
     echo "- $label (${now_branch:-detached}): no changes"

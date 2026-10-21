@@ -1,8 +1,9 @@
 ---
 name: save
-description: Save this chat's state to its keep track so a new chat can continue with no briefing. Use before /clear, after repeated compactions, after a long discussion, or before stopping.
+description: Save this chat's state to its keep track so a new chat can continue with no briefing. Use it in a chat bound to a keep track before /clear, after repeated compactions, after a long discussion, or before stopping; in a chat that isn't bound, only when the user asks to save to keep.
+allowed-tools: Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" add *) Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" commit *)
 ---
-Update the bound track's STATE.md in `${CLAUDE_PROJECT_DIR}/.keep/<feature>/<track>/`; the track is in the context this chat started with. Write it for an agent with no memory of this chat. It's done when deleting this chat would lose nothing.
+Update the bound track's STATE.md in `${CLAUDE_PROJECT_DIR}/.keep/<feature>/<track>/`. `cat "${CLAUDE_PROJECT_DIR}/.keep/.state/track-${CLAUDE_SESSION_ID}" 2>/dev/null` prints the track this chat is bound to, as `<feature>/<track>`. If it prints nothing, run the start skill first, so the user picks or creates the track, then save to it. Write it for an agent with no memory of this chat. It's done when deleting this chat would lose nothing.
 
 1. **Current:** the work in flight: branch or worktree, files touched, what works, what's left. Mark each line `[verified]` (checked against code, git or a test in this chat) or `[assumed]`. Include conclusions reached in discussion.
 2. **Next step:** one concrete action that names the file and function to touch, or the command to run.
@@ -12,4 +13,4 @@ Update the bound track's STATE.md in `${CLAUDE_PROJECT_DIR}/.keep/<feature>/<tra
 6. Edit STATE.md in place: never rewrite it whole, and never delete a ticket or Done-log line. Leave an empty section with just its comment. Keep the file under 5,000 bytes by moving older Done-log lines and settled gotchas to NOTES.md.
 7. If the user corrected the same mistake more than once, propose a one-line rule for FEATURE.md or CONTEXT.md. Show it; don't add it silently.
 8. Don't commit unfinished code without asking. If the keep folder is its own git repo, commit it: `git -C "${CLAUDE_PROJECT_DIR}/.keep" add -A && git -C "${CLAUDE_PROJECT_DIR}/.keep" commit -m "<feature>/<track>: save"`.
-9. Reply only: "Saved. Type /clear, or start a new chat with /keep:start <feature>/<track>."
+9. Reply with "Saved.", then one line for each decision, Inbox line or rule you wrote, then "Type /clear, or start a new chat with /keep:start <name>." with the shortest start command you know for the track; `<feature>/<track>` always works.
