@@ -14,7 +14,7 @@ claude plugin marketplace add /path/to/claude-keep --scope project
 claude plugin install keep@claude-keep --scope project
 ```
 
-The installed copy is cached under `~/.claude/plugins/cache/`, so update it after changing the plugin: `claude plugin marketplace update claude-keep`, then `claude plugin update keep@claude-keep --scope project`. Open a new session in the sandbox folder and accept the folder trust prompt if it appears.
+A plugin installed from a local folder is read from that folder, so changes take effect at the next session start or after `/reload-plugins`. Open a new session in the sandbox folder and accept the folder trust prompt if it appears.
 
 ## Checks
 
