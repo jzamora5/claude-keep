@@ -2,6 +2,8 @@
 
 Manual checks in a real session, after the hook tests (`bash tests/hooks.test.sh`) pass. Run them in the Claude desktop app first, then in VS Code.
 
+`bash tests/evals.sh` runs part of this list in real headless sessions with `claude plugin eval`: checks 1, 2, 5, the proposal halves of 19 and 20, a typed `/keep:start` with a request (the chat is renamed, the request answered), the state after an edit, and `/keep:done` stopping on a failed check. Each case is one message, so the checks that need several messages, a `/clear`, a resume, a compaction or the app's own permission prompts stay here.
+
 ## Setup
 
 Use a sandbox project with two small git repos (`api/`, `web/`), a design doc (`docs/spec.md`) and a feature in `.keep/demo/` with two tracks, `tickets` and `research`. Install keep for that project only, from a local clone:

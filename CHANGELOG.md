@@ -3,6 +3,7 @@
 ## 0.5.1 · 2026-10-21
 
 - A chat that moves to another folder after it starts keeps `CLAUDE_PROJECT_DIR` from the folder it started in. When that folder has no `.keep/`, the hooks, scripts and skills now use the nearest `.keep/` at or above the folder the chat works in, instead of finding nothing and staying silent.
+- An eval suite in `plugins/keep/evals/` checks eight behaviors in real headless sessions with `claude plugin eval`; `bash tests/evals.sh` runs it.
 
 ## 0.5.0 · 2026-10-21
 
