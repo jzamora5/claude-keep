@@ -5,6 +5,8 @@ context: fork
 agent: general-purpose
 background: false
 ---
+If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat moves to another folder after it starts, use the nearest folder at or above the current one that has a `.keep/` wherever this says `${CLAUDE_PROJECT_DIR}`.
+
 Feature: $ARGUMENTS
 
 1. Read `${CLAUDE_PROJECT_DIR}/.keep/<feature>/FEATURE.md` for the source docs and where decisions are recorded. If either is missing, say so and stop.

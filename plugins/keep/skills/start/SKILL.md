@@ -3,6 +3,8 @@ name: start
 description: Bind this chat to a keep track and load its state, create a new track, or unbind the chat. Run it when the user types /keep:start, asks to work on a track, or agrees to a track you suggested. Never bind a chat the user hasn't agreed to.
 allowed-tools: Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/bind.sh" *) Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/status.sh" *) Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/freshness.sh" *) Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/setup-git.sh" *)
 ---
+If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat moves to another folder after it starts, use the nearest folder at or above the current one that has a `.keep/` wherever this says `${CLAUDE_PROJECT_DIR}`.
+
 Arguments: $ARGUMENTS
 
 The keep folder is `${CLAUDE_PROJECT_DIR}/.keep/`. Each feature is a folder in it, and each track is a folder in its feature. The first word of the arguments names the track: `<feature>/<track>`, or a single name when it matches exactly one track (a feature that has only one track, or else a track name used by only one feature). Anything after it is the user's request.

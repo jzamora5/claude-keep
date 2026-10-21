@@ -2,6 +2,8 @@
 name: next
 description: In a chat bound to a keep track, propose the next ticket from the track's STATE.md with a short plan, and wait for approval before writing any code.
 ---
+If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat moves to another folder after it starts, use the nearest folder at or above the current one that has a `.keep/` wherever this says `${CLAUDE_PROJECT_DIR}`.
+
 `cat "${CLAUDE_PROJECT_DIR}/.keep/.state/track-${CLAUDE_SESSION_ID}" 2>/dev/null` prints the track this chat is bound to, as `<feature>/<track>`. If it prints nothing, say that no track is bound and offer to bind one with the start skill; continue only once it's bound.
 
 1. Read the bound track's STATE.md in `${CLAUDE_PROJECT_DIR}/.keep/<feature>/<track>/`. Handle the Inbox first: for each item, say which ticket it affects and propose how to fold it in (a new ticket, a change to one, a gotcha or an open question).

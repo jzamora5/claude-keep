@@ -4,7 +4,7 @@
 # directory as cwd so a Claude Code worktree session is checked in its worktree.
 set -uo pipefail
 . "$(dirname "$0")/common.sh"
-root="${1:?project root}"
+root=$(keep_root "${1:?project root}" "$PWD")
 track="${2:?<feature>/<track>}"
 keep=$(keep_dir "$root")
 stamp=$(stamp_file "$keep" "$track")

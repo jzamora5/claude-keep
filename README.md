@@ -70,7 +70,7 @@ The `doc-expert` subagent answers questions from the source docs, so a chat neve
   .state/            runtime files and each track's git stamp, ignored by git
 ```
 
-The keep folder is always `.keep/` in the project root. The git stamps describe this machine's checkouts, so they live in `.state/` and never travel with the state. Freshness leaves `.keep/` out when it checks a repo, so the state's own files never count as code changes. When it creates `.keep/`, the agent offers two separate choices: keeping `.keep/` out of the project's git, through the local exclude file that isn't shared, and giving `.keep/` its own history, which keep then commits to as it saves. These environment variables change the defaults:
+The keep folder is always `.keep/` in the project root. A chat that moves to another folder after it starts keeps the project root it started in; when that has no `.keep/`, keep uses the nearest one at or above the folder the chat works in. The git stamps describe this machine's checkouts, so they live in `.state/` and never travel with the state. Freshness leaves `.keep/` out when it checks a repo, so the state's own files never count as code changes. When it creates `.keep/`, the agent offers two separate choices: keeping `.keep/` out of the project's git, through the local exclude file that isn't shared, and giving `.keep/` its own history, which keep then commits to as it saves. These environment variables change the defaults:
 
 | Variable | Default | What it sets |
 | --- | --- | --- |
@@ -114,7 +114,7 @@ keep's skills run their own scripts without asking. Saving STATE.md outside a sk
 
 ## Status
 
-Version 0.5.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2; they haven't run in a live session yet. `tests/live-checklist.md` lists the checks for a real session.
+Version 0.5.1, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2; they haven't run in a live session yet. `tests/live-checklist.md` lists the checks for a real session.
 
 ## Credits
 

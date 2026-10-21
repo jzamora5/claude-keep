@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1 · 2026-10-21
+
+- A chat that moves to another folder after it starts keeps `CLAUDE_PROJECT_DIR` from the folder it started in. When that folder has no `.keep/`, the hooks, scripts and skills now use the nearest `.keep/` at or above the folder the chat works in, instead of finding nothing and staying silent.
+
 ## 0.5.0 · 2026-10-21
 
 - Say yes to a track the agent suggests, and it binds the chat and carries on with your request: there's no command to type. A ticket still waits for your approval of its plan, as with `/keep:next`. The agent can now run the start skill, but only after you agree. The chat is named after the track at your next message.

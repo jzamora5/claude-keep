@@ -3,6 +3,8 @@ name: save
 description: Save this chat's state to its keep track so a new chat can continue with no briefing. Use it in a chat bound to a keep track before /clear, after repeated compactions, after a long discussion, or before stopping; in a chat that isn't bound, only when the user asks to save to keep.
 allowed-tools: Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" add *) Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" commit *)
 ---
+If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat moves to another folder after it starts, use the nearest folder at or above the current one that has a `.keep/` wherever this says `${CLAUDE_PROJECT_DIR}`.
+
 Update the bound track's STATE.md in `${CLAUDE_PROJECT_DIR}/.keep/<feature>/<track>/`. `cat "${CLAUDE_PROJECT_DIR}/.keep/.state/track-${CLAUDE_SESSION_ID}" 2>/dev/null` prints the track this chat is bound to, as `<feature>/<track>`. If it prints nothing, run the start skill first, so the user picks or creates the track, then save to it. Write it for an agent with no memory of this chat. It's done when deleting this chat would lose nothing.
 
 1. **Current:** the work in flight: branch or worktree, files touched, what works, what's left. Mark each line `[verified]` (checked against code, git or a test in this chat) or `[assumed]`. Include conclusions reached in discussion.

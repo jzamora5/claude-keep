@@ -2,6 +2,20 @@
 
 keep_dir() { printf '%s/.keep' "$1"; }
 
+# keep_root <project dir> <working dir>: the folder whose .keep/ to use: the project dir when it has one, or
+# else the nearest .keep/ at or above the working dir, so a chat that works in another folder than the one it
+# started in still finds its keep folder.
+keep_root() {
+  local d="$2"
+  if [ ! -d "$1/.keep" ]; then
+    while [ -n "$d" ] && [ "$d" != / ]; do
+      [ -d "$d/.keep" ] && { printf '%s' "$d"; return; }
+      d=$(dirname "$d")
+    done
+  fi
+  printf '%s' "$1"
+}
+
 rel() { printf '%s' "${1#"$root"/}"; }
 
 # Names are single path segments starting with a letter or digit, so "../x" can't escape the keep folder

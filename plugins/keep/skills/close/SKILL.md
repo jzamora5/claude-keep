@@ -3,6 +3,8 @@ name: close
 description: Close a finished track or feature: hand off what's still open, move it to the archive and update the index. Run it when the user types /keep:close <feature>/<track> (or <feature> for a whole feature) or asks in words to close one; never on your own.
 allowed-tools: Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/status.sh" *) Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/archive.sh" *) Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" add *) Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" commit *)
 ---
+If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat moves to another folder after it starts, use the nearest folder at or above the current one that has a `.keep/` wherever this says `${CLAUDE_PROJECT_DIR}`.
+
 Target: $ARGUMENTS
 
 The keep folder is `${CLAUDE_PROJECT_DIR}/.keep/`.

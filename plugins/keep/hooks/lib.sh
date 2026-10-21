@@ -6,7 +6,8 @@ command -v jq >/dev/null 2>&1 || exit 0
 . "$(dirname "${BASH_SOURCE[0]}")/../scripts/common.sh"
 
 input=$(cat)
-root="${CLAUDE_PROJECT_DIR:-$PWD}"
+field() { jq -r "$1 // \"\"" <<<"$input" 2>/dev/null; }
+root=$(keep_root "${CLAUDE_PROJECT_DIR:-$PWD}" "$(field .cwd)")
 keep=$(keep_dir "$root")
 [ -d "$keep" ] || exit 0
 st="$keep/.state"
@@ -14,8 +15,6 @@ if [ ! -d "$st" ]; then
   mkdir -p "$st" || exit 0
   printf '*\n' > "$st/.gitignore"
 fi
-
-field() { jq -r "$1 // \"\"" <<<"$input" 2>/dev/null; }
 
 sid=$(field .session_id)
 [[ "$sid" =~ ^[A-Za-z0-9._-]+$ ]] || exit 0

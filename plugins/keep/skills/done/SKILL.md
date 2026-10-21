@@ -3,6 +3,8 @@ name: done
 description: In a chat bound to a keep track, verify the current ticket, update the feature's docs and the track's STATE.md, summarize for review, and commit only after approval.
 allowed-tools: Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" add *) Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" commit *)
 ---
+If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat moves to another folder after it starts, use the nearest folder at or above the current one that has a `.keep/` wherever this says `${CLAUDE_PROJECT_DIR}`.
+
 `cat "${CLAUDE_PROJECT_DIR}/.keep/.state/track-${CLAUDE_SESSION_ID}" 2>/dev/null` prints the track this chat is bound to, as `<feature>/<track>`. If it prints nothing, say that no track is bound and stop.
 
 1. Run the ticket's acceptance check plus the test and lint commands for each repo it touched. If any of them fails, report it and stop: the ticket isn't done.

@@ -4,7 +4,7 @@
 # are never deleted.
 set -uo pipefail
 . "$(dirname "$0")/common.sh"
-root="${1:?project root}"
+root=$(keep_root "${1:?project root}" "$PWD")
 target="${2:?<feature> or <feature>/<track>}"
 keep=$(keep_dir "$root")
 st="$keep/.state"

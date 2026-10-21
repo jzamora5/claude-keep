@@ -4,7 +4,7 @@
 # "off". Typing /keep:start binds through the UserPromptSubmit hook instead, which also names the chat.
 set -uo pipefail
 . "$(dirname "$0")/common.sh"
-root="${1:?project root}"
+root=$(keep_root "${1:?project root}" "$PWD")
 sid="${2:-}"
 name="${3:-}"
 keep=$(keep_dir "$root")

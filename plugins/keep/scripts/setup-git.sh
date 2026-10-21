@@ -4,7 +4,7 @@
 # changes. history: gives .keep/ its own git history. Safe to run again.
 set -uo pipefail
 . "$(dirname "$0")/common.sh"
-root="${1:?project root}"
+root=$(keep_root "${1:?project root}" "$PWD")
 shift
 keep=$(keep_dir "$root")
 [ -d "$keep" ] || { echo "No keep folder at $keep" >&2; exit 1; }

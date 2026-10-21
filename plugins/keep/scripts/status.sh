@@ -3,7 +3,7 @@
 # each, flagging idle ones.
 set -uo pipefail
 . "$(dirname "$0")/common.sh"
-root="${1:-$PWD}"
+root=$(keep_root "${1:-$PWD}" "$PWD")
 keep=$(keep_dir "$root")
 idle="${KEEP_IDLE_DAYS:-14}"
 

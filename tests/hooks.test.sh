@@ -122,6 +122,25 @@ ok "it asks for decisions to be recorded when they're made" '[[ "$out" == *"Reco
 ok "without a stamp it says nothing was checked against git" '[[ "$out" == *"No git stamp yet"* ]]'
 ok "no compaction notes on resume" '[[ "$out" != *compacted* ]]'
 
+echo "--- a chat that moved to another folder"
+M=$(mktemp -d "${TMPDIR:-/tmp}/keep-moved.XXXXXX")
+out=$(printf '{"session_id":"mv1","prompt":"/keep:start shop/tickets","cwd":"%s"}' "$R/api" | CLAUDE_PROJECT_DIR="$M" "$H/hooks/bind.sh")
+ok "a chat that started elsewhere finds the keep folder from where it works now" '[ "$(cat "$st/track-mv1" 2>/dev/null)" = shop/tickets ] && [ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = shop/tickets ]'
+out=$(printf '{"session_id":"mv1","source":"resume","cwd":"%s"}' "$R/api" | CLAUDE_PROJECT_DIR="$M" "$H/hooks/load.sh")
+ok "and loads its track" '[[ "$out" == *"Active track: shop/tickets"* ]]'
+printf '{"session_id":"mv1","tool_name":"Edit","tool_input":{"file_path":"%s"},"cwd":"%s"}' "$R/api/cart.js" "$R/api" | CLAUDE_PROJECT_DIR="$M" "$H/hooks/track.sh"
+ok "and counts its edits" '[ -f "$st/dirty-mv1" ]'
+out=$(cd "$R/api" && bash "$H/scripts/status.sh" "$M")
+ok "the scripts find it the same way" '[[ "$out" == *"shop/tickets"* ]]'
+out=$(printf '{"session_id":"mv2","prompt":"/keep:start shop/tickets","cwd":"%s"}' "$M" | CLAUDE_PROJECT_DIR="$M" "$H/hooks/bind.sh"; echo "exit=$?")
+ok "with no keep folder at or above it, keep stays silent" '[ "$out" = "exit=0" ] && [ ! -e "$M/.keep" ]'
+missing=""
+for f in "$H"/skills/*/SKILL.md; do
+  grep -q "CLAUDE_PROJECT_DIR" "$f" && ! grep -q "has no \`.keep/\` folder, which happens when a chat moves" "$f" && missing="$missing ${f#$H/}"
+done
+ok "every skill that uses the project folder says what to do when it has no .keep/${missing:+ (missing:$missing)}" '[ -z "$missing" ]'
+rm -f "$st/track-mv1" "$st/dirty-mv1"; rm -rf "$M"
+
 echo "--- tracking and the Stop gate"
 edit() { hook track "{\"session_id\":\"$1\",\"tool_name\":\"$2\",\"tool_input\":{\"file_path\":\"$3\"}}"; }
 stop() { hook stop "{\"session_id\":\"$1\",\"stop_hook_active\":$2}"; }
