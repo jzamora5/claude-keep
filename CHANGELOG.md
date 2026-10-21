@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0 · 2026-10-21
+
+- `/keep:start` takes a single name when only one track matches it: a feature with one track, or a track name used by only one feature. The index and the listings show the shortest command for each track.
+- In a chat that isn't bound yet, the agent's first reply names the track that matches what you asked about, with its start command. It only suggests; nothing is bound until you run the command.
+- Binding a chat that already has work in it offers `/keep:save`, so what the chat knew before reaches the track.
+
 ## 0.3.1 · 2026-10-20
 
 - Edits to Claude's own files under `~/.claude/` (memory, plans, settings) no longer mark the chat dirty.

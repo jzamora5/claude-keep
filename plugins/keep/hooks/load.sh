@@ -87,11 +87,12 @@ find "$st" -type f ! -name .gitignore ! -name 'stamp-*' -mtime +"${KEEP_STATE_DA
 bash "$here/../scripts/index.sh" "$root" 2>/dev/null
 
 if [ -z "$binding" ] || [ ! -f "$keep/$binding/STATE.md" ]; then
-  add "No keep track is bound to this chat. The user binds one with /keep:start <feature>/<track>."
+  add "No keep track is bound to this chat. The user binds one with /keep:start, followed by the name shown for each track."
   list=$(bash "$here/../scripts/status.sh" "$root" 2>/dev/null)
-  if [ -n "$list" ]; then
-    add "Tracks and their current work:"
+  if [[ "$list" == "- "* ]]; then
+    add "Tracks, their current work and how to start each:"
     add "$list"
+    add "In your first reply, if the user's message is about one of these tracks, name it and give its exact start command from the list; if it could be more than one, list those. Only suggest: don't bind a track or record work in one until the user runs the command. If the message is about none of them, just answer it."
   fi
   printf '%s' "$out" | lines_within "$budget"
   exit 0

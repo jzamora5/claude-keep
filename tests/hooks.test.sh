@@ -37,6 +37,7 @@ rm -rf "$E"
 echo "--- binding"
 out=$(hook load '{"session_id":"s1","source":"startup"}')
 ok "unbound chat lists tracks with their current work" '[[ "$out" == *"No keep track is bound"* && "$out" == *"shop/tickets: Ticket: T-7 checkout fix"* && "$out" == *"solo/main"* ]]'
+ok "and asks the agent to suggest the matching track without binding it" '[[ "$out" == *"In your first reply"* && "$out" == *"Only suggest"* ]]'
 ok "the state folder ignores itself in git" '[ "$(cat "$st/.gitignore")" = "*" ]'
 out=$(hook bind '{"session_id":"s1","prompt":"/keep:start shop/tickets"}')
 ok "bind names the chat after the track" '[ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = shop/tickets ]'
@@ -45,6 +46,16 @@ out=$(hook bind '{"session_id":"s2","prompt":"/start shop/research"}')
 ok "the unprefixed form binds too" '[ "$(cat "$st/track-s2" 2>/dev/null)" = shop/research ]'
 out=$(hook bind '{"session_id":"s3","prompt":"/keep:start solo"}')
 ok "a feature with one track binds to it" '[ "$(cat "$st/track-s3" 2>/dev/null)" = solo/main ]'
+out=$(hook bind '{"session_id":"r1","prompt":"/keep:start research"}')
+ok "a track name used by one feature binds to that track" '[ "$(cat "$st/track-r1" 2>/dev/null)" = shop/research ] && [ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = shop/research ]'
+hook bind '{"session_id":"r2","prompt":"/keep:start main"}' >/dev/null
+ok "so does the only track of another feature" '[ "$(cat "$st/track-r2" 2>/dev/null)" = solo/main ]'
+mkdir -p "$K/other/tickets" && cp "$K/solo/main/STATE.md" "$K/other/tickets/STATE.md"
+out=$(hook bind '{"session_id":"r3","prompt":"/keep:start tickets"}')
+ok "a track name used by two features doesn't bind" '[ -z "$out" ] && [ ! -f "$st/track-r3" ]'
+out=$(bash "$H/scripts/status.sh" "$R")
+ok "the listing then falls back to full names for those tracks" '[[ "$out" == *"shop/tickets: Ticket: T-7 checkout fix (start: /keep:start shop/tickets)"* && "$out" == *"other/tickets: Ticket: none (start: /keep:start other)"* ]]'
+rm -rf "$K/other"; rm -f "$st/track-r1" "$st/track-r2"
 out=$(hook bind '{"session_id":"s8","prompt":"/keep:start shop/tickets and continue"}')
 ok "words after the track are fine" '[ "$(cat "$st/track-s8" 2>/dev/null)" = shop/tickets ]'; rm -f "$st/track-s8"
 for p in "/keep:start shop" "/keep:start shop/nope" "/keep:start ../shop/tickets" "/keep:start .state/x" "hello /keep:start shop/tickets" "/keep:startshop/tickets" "/keep:start shop/tickets/extra"; do
@@ -147,7 +158,8 @@ ok "the cut falls at a line end, so no character is split" 'printf "%s" "$out" |
 
 echo "--- index, idle tracks and housekeeping"
 ago() { date -v-"$1"d +%Y%m%d%H%M 2>/dev/null || date -d "$1 days ago" +%Y%m%d%H%M; }
-ok "the index is generated at chat start" '[ -f "$K/INDEX.md" ] && grep -q "| shop/research | Ticket: pricing question |" "$K/INDEX.md" && grep -q "/keep:start solo/main" "$K/INDEX.md"'
+ok "the index is generated at chat start" '[ -f "$K/INDEX.md" ] && grep -q "| shop/research | Ticket: pricing question |" "$K/INDEX.md"'
+ok "the index gives the shortest start command for each track" 'grep -q "\`/keep:start research\`" "$K/INDEX.md" && grep -q "\`/keep:start main\`" "$K/INDEX.md" && grep -q "\`/keep:start tickets\`" "$K/INDEX.md"'
 bash "$H/scripts/index.sh" "$R"; bash "$H/scripts/index.sh" "$R"
 ok "git ignores the index, listed once" '[ "$(grep -cx INDEX.md "$K/.gitignore")" = 1 ]'
 touch -t 202001010000 "$K/INDEX.md"
@@ -158,7 +170,7 @@ edit s1 Edit "$K/shop/tickets/STATE.md"
 ok "saving a changed state refreshes the index" 'grep -q "line number one that" "$K/INDEX.md"'
 touch -t "$(ago 20)" "$K/solo/main/STATE.md"
 out=$(bash "$H/scripts/status.sh" "$R")
-ok "a track untouched for 14+ days is flagged in the listing" '[[ "$out" == *"solo/main: Ticket: none (idle 20 days; close it with /keep:close solo/main)"* ]]'
+ok "a track untouched for 14+ days is flagged in the listing" '[[ "$out" == *"solo/main: Ticket: none (start: /keep:start main) (idle 20 days; close it with /keep:close solo/main)"* ]]'
 bash "$H/scripts/index.sh" "$R"
 ok "and in the index" 'grep -q "idle 20 days: \`/keep:close solo/main\`?" "$K/INDEX.md"'
 out=$(KEEP_IDLE_DAYS=30 bash "$H/scripts/status.sh" "$R")
@@ -202,7 +214,7 @@ done
 
 echo "--- helper scripts"
 out=$(bash "$H/scripts/status.sh" "$R")
-ok "status lists the tracks still open" '[ "$out" = "- shop/tickets: [assumed] a very long current line number one that keeps going — with · marks" ]'
+ok "status lists the tracks still open" '[ "$out" = "- shop/tickets: [assumed] a very long current line number one that keeps going — with · marks (start: /keep:start shop)" ]'
 out=$(bash "$H/scripts/status.sh" "$R/api")
 ok "status says when a folder has no keep folder" '[[ "$out" == *"No keep folder at $R/api/.keep"* ]]'
 out=$(bash "$H/scripts/freshness.sh" "$R" shop/research)

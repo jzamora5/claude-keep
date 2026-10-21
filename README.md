@@ -23,7 +23,8 @@ Everything is plain Markdown in your project, and the hooks make no network or m
 ## How it works
 
 - **Files.** A feature lives in `.keep/<feature>/` with a `FEATURE.md` that points to its source docs (an RFC, PRD, design doc or spec) instead of copying them. Each track has a `CONTEXT.md` (what it's for), a `STATE.md` (where it stands) and a `NOTES.md` (reference).
-- **Start.** `/keep:start <feature>/<track>` binds the chat to a track and names the chat after it. A new chat, `/clear`, a resume or a compaction then reloads the feature and the track by themselves.
+- **Start.** `/keep:start <feature>/<track>` binds the chat to a track and names the chat after it. A single name works when only one track matches it, such as `/keep:start terms`. You don't need to remember names: in a chat that isn't bound yet, describe what you want to work on, and the agent's first reply names the matching track and its start command. It only suggests; nothing is bound until you run the command. A new chat, `/clear`, a resume or a compaction then reloads the feature and the track by themselves.
+- **Opt in mid-chat.** keep does nothing in a chat until you bind it, so an ongoing chat can opt in at any point with `/keep:start`. If no track fits, add a track to an existing feature instead of creating a feature. When you bind a chat that already has work in it, the agent offers `/keep:save` so what the chat already knows reaches the track.
 - **Stays under the limit.** Hook output over 10,000 characters reaches Claude only as a short preview, so the reload always includes the Inbox, Current and Next step, adds whole sections while they fit, and names the ones it left out.
 - **Decisions.** Each decision is recorded with the options it rejected and why, so a later chat doesn't propose them again.
 - **You always know what exists.** `.keep/INDEX.md` is regenerated at every chat start and every state save: each track, its current work, its last update and the command to start it. New features and tracks get a name you approve before they're created.
@@ -40,7 +41,7 @@ Everything is plain Markdown in your project, and the hooks make no network or m
 
 | Command | What it does |
 | --- | --- |
-| `/keep:start <feature>/<track>` | Binds the chat to a track and names the chat after it; without arguments, lists the tracks or creates a new one after you approve its name |
+| `/keep:start <feature>/<track>` | Binds the chat to a track and names the chat after it; a single name works when only one track matches it. Without arguments, lists the tracks or creates a new one after you approve its name |
 | `/keep:list` | Shows every track with its current work, its last update and the command to start it |
 | `/keep:next` | Proposes the next ticket with a short plan, and waits for your approval before any code |
 | `/keep:done` | Verifies the ticket, updates the feature's docs and the state, and commits after your approval |
@@ -100,7 +101,7 @@ To use it in one project only, add this to that project's `.claude/settings.json
 
 ## Status
 
-Version 0.3.1, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2; they haven't run in a live session yet. `tests/live-checklist.md` lists the checks for a real session.
+Version 0.4.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2; they haven't run in a live session yet. `tests/live-checklist.md` lists the checks for a real session.
 
 ## Credits
 

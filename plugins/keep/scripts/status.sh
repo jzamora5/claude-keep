@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# status.sh [project root]: each feature's tracks with their current work, flagging idle ones.
+# status.sh [project root]: each feature's tracks with their current work and the shortest command that starts
+# each, flagging idle ones.
 set -uo pipefail
 . "$(dirname "$0")/common.sh"
 root="${1:-$PWD}"
@@ -16,7 +17,7 @@ if [ -z "$rows" ]; then
   exit 0
 fi
 while IFS=$'\t' read -r f t cur _ days; do
-  line="- $f/$t: ${cur:-no current work}"
+  line="- $f/$t: ${cur:-no current work} (start: /keep:start $(start_arg "$keep" "$f" "$t"))"
   [ "$days" -ge "$idle" ] && line="$line (idle $days days; close it with /keep:close $f/$t)"
   echo "$line"
 done <<<"$rows"

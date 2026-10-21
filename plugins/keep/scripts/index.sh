@@ -28,8 +28,8 @@ trap 'rm -f "$tmp"' EXIT
     while IFS=$'\t' read -r f t cur updated days; do
       note=""
       [ "$days" -ge "$idle" ] && note=", idle $days days: \`/keep:close $f/$t\`?"
-      printf '| %s/%s | %s | %s%s | `/keep:start %s/%s` |\n' "$f" "$t" \
-        "$(printf '%s' "${cur:-none}" | sed 's/|/\\|/g')" "$updated" "$note" "$f" "$t"
+      printf '| %s/%s | %s | %s%s | `/keep:start %s` |\n' "$f" "$t" \
+        "$(printf '%s' "${cur:-none}" | sed 's/|/\\|/g')" "$updated" "$note" "$(start_arg "$keep" "$f" "$t")"
     done <<<"$rows"
   fi
   archived=$(find "$keep/_archive" -mindepth 2 -maxdepth 2 -type d 2>/dev/null | wc -l | tr -d ' ')

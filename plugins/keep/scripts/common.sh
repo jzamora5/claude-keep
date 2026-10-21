@@ -25,6 +25,32 @@ list_tracks() {
   done
 }
 
+# resolve_target <keep> <name>: the track a one-word /keep:start means: a feature's only track, or else the
+# one track anywhere with that name. Prints nothing when the name matches no track or several.
+resolve_target() {
+  local tracks f hits=""
+  valid_name "$2" || return 0
+  if [ -d "$1/$2" ]; then
+    tracks=$(list_tracks "$1" "$2")
+    [ -n "$tracks" ] && [ "$(printf '%s\n' "$tracks" | wc -l | tr -d ' ')" = 1 ] && printf '%s/%s' "$2" "$tracks"
+    return 0
+  fi
+  for f in $(list_features "$1"); do
+    [ -f "$1/$f/$2/STATE.md" ] && hits="$hits $f/$2"
+  done
+  set -- $hits
+  [ "$#" = 1 ] && printf '%s' "$1"
+  return 0
+}
+
+# start_arg <keep> <feature> <track>: the shortest /keep:start argument that still names this track.
+start_arg() {
+  local best="$2/$3"
+  [ "$(resolve_target "$1" "$2")" = "$2/$3" ] && best="$2"
+  if [ "$(resolve_target "$1" "$3")" = "$2/$3" ] && [ "${#3}" -le "${#best}" ]; then best="$3"; fi
+  printf '%s' "$best"
+}
+
 # current_line <STATE.md>: the first entry under "## Current", skipping comments and blank lines.
 current_line() {
   awk '/^## /{ c = ($0 ~ /^## Current/); next }
