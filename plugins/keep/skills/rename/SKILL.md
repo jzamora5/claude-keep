@@ -1,6 +1,6 @@
 ---
 name: rename
-description: Rename a keep track or a whole feature, keeping its chats bound. Run it when the user types /keep:rename <feature>/<track> <new name> (or <feature> <new name>) or asks in words to rename one; never on your own.
+description: Rename a keep track (the user may call a track a workspace) or a whole feature, keeping its chats bound. Run it when the user types /keep:rename <feature>/<track> <new name> (or <feature> <new name>) or asks in words to rename one; never on your own.
 allowed-tools: Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/rename.sh" *) Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" add *) Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" commit *)
 ---
 If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat moves to another folder after it starts, use the nearest folder at or above the current one that has a `.keep/` wherever this says `${CLAUDE_PROJECT_DIR}`.

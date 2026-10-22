@@ -87,7 +87,7 @@ find "$st" -type f ! -name .gitignore ! -name 'stamp-*' -mtime +"${KEEP_STATE_DA
 bash "$here/../scripts/index.sh" "$root" 2>/dev/null
 
 if [ -z "$binding" ] || [ ! -f "$keep/$binding/STATE.md" ]; then
-  add "No keep track is bound to this chat."
+  add "No keep track is bound to this chat. The user may call a track a workspace."
   list=$(bash "$here/../scripts/status.sh" "$root" 2>/dev/null)
   if [[ "$list" == "- "* ]]; then
     add "Tracks, their current work or goal, and how to start each:"
@@ -102,6 +102,7 @@ fdir="$keep/${binding%%/*}"
 tdir="$keep/$binding"
 short=$(start_arg "$keep" "${binding%%/*}" "${binding#*/}")
 add "Active track: $binding (a new chat starts it with /keep:start $short). Its files: $(rel "$fdir")/FEATURE.md, plus CONTEXT.md, STATE.md and NOTES.md in $(rel "$tdir")/."
+add "The user may call a track a workspace; /keep:current shows this one."
 add "STATE.md is the handoff for the next chat and must stay current. Record each decision as soon as it's made, with the options rejected and why, where FEATURE.md says decisions go."
 if [ -n "$worktree" ]; then
   add "This chat runs in a Claude Code worktree, and Claude Code blocks edits to the main checkout, where $(rel "$keep")/ is. So this chat can read the track but can't update STATE.md, and isn't asked to. Say so in your first reply, so the user knows this chat's work won't reach the track."

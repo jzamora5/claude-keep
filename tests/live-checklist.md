@@ -2,7 +2,7 @@
 
 Manual checks in a real session, after the hook tests (`bash tests/hooks.test.sh`) pass. Run them in the Claude desktop app first, then in VS Code.
 
-`bash tests/evals.sh` runs part of this list in real headless sessions with `claude plugin eval`: checks 1, 2, 5, the proposal halves of 19 and 20, a typed `/keep:start` with a request (the chat is renamed, the request answered), the state after an edit, and `/keep:done` stopping on a failed check. Each case is one message, so the checks that need several messages, a `/clear`, a resume, a compaction or the app's own permission prompts stay here.
+`bash tests/evals.sh` runs part of this list in real headless sessions with `claude plugin eval`: checks 1, 2, 5, the proposal halves of 19 and 20, a typed `/keep:start` with a request (the chat is renamed, the request answered), the state after an edit, `/keep:done` stopping on a failed check, and questions that say "workspace" instead of "track". Each case is one message, so the checks that need several messages, a `/clear`, a resume, a compaction or the app's own permission prompts stay here.
 
 ## Setup
 

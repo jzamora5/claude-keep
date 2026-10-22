@@ -122,6 +122,19 @@ ok "it asks for decisions to be recorded when they're made" '[[ "$out" == *"Reco
 ok "without a stamp it says nothing was checked against git" '[[ "$out" == *"No git stamp yet"* ]]'
 ok "no compaction notes on resume" '[[ "$out" != *compacted* ]]'
 
+echo "--- the current track"
+out=$(bash "$H/scripts/current.sh" "$R" s1)
+ok "current shows this chat's track, its current work, next step and start command" '[[ "$out" == *"This chat is on shop/tickets. A new chat starts it with /keep:start tickets."* && "$out" == *"Current: Ticket: T-7 checkout fix"* && "$out" == *"Next step: edit api/cart.js applyDiscount"* ]]'
+out=$(bash "$H/scripts/current.sh" "$R" nobody)
+ok "an unbound chat is told so, with the tracks to pick from" '[[ "$out" == *"This chat isn'"'"'t bound to a track."* && "$out" == *"- shop/research:"* ]]'
+out=$(bash "$H/scripts/current.sh" "$R" "../x" 2>&1; echo "exit=$?")
+ok "current refuses a bad session id" '[[ "$out" == *"exit=1"* ]]'
+out=$(hook load '{"session_id":"s1","source":"resume"}')
+ok "a bound chat is told a track may be called a workspace" '[[ "$out" == *"The user may call a track a workspace; /keep:current shows this one."* ]]'
+out=$(hook load '{"session_id":"nobody","source":"startup"}')
+ok "so is an unbound one" '[[ "$out" == *"The user may call a track a workspace."* ]]'
+ok "every skill about tracks mentions the word workspace" '[ -z "$(grep -L "workspace" "$H"/skills/{start,current,list,rename,close,save,next,done}/SKILL.md)" ]'
+
 echo "--- a chat that moved to another folder"
 M=$(mktemp -d "${TMPDIR:-/tmp}/keep-moved.XXXXXX")
 out=$(printf '{"session_id":"mv1","prompt":"/keep:start shop/tickets","cwd":"%s"}' "$R/api" | CLAUDE_PROJECT_DIR="$M" "$H/hooks/bind.sh")

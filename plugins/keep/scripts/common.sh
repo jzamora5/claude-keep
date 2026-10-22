@@ -105,11 +105,13 @@ unbind_chat() {
   printf '%s (unbound)' "$before"
 }
 
-# current_line <STATE.md>: the first entry under "## Current", skipping comments and blank lines.
-current_line() {
-  awk '/^## /{ c = ($0 ~ /^## Current/); next }
+# section_line <STATE.md> <heading>: the first entry under "## <heading>", skipping comments and blank lines.
+section_line() {
+  awk -v h="## $2" 'index($0, "## ") == 1 { c = (index($0, h) == 1); next }
        c && $0 !~ /^[[:space:]]*(<!--.*-->)?[[:space:]]*$/ { sub(/^[[:space:]]*[-*][[:space:]]*/, ""); print; exit }' "$1" 2>/dev/null | cut -c1-140
 }
+
+current_line() { section_line "$1" Current; }
 
 # age_days <file>: whole days since the file last changed.
 age_days() {

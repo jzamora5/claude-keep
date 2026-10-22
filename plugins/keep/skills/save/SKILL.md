@@ -1,6 +1,6 @@
 ---
 name: save
-description: Save this chat's state to its keep track so a new chat can continue with no briefing. Use it in a chat bound to a keep track before /clear, after repeated compactions, after a long discussion, or before stopping; in a chat that isn't bound, only when the user asks to save to keep.
+description: Save this chat's state to its keep track (the user may call a track a workspace) so a new chat can continue with no briefing. Use it in a chat bound to a keep track before /clear, after repeated compactions, after a long discussion, or before stopping; in a chat that isn't bound, only when the user asks to save to keep.
 allowed-tools: Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" add *) Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" commit *)
 ---
 If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat moves to another folder after it starts, use the nearest folder at or above the current one that has a `.keep/` wherever this says `${CLAUDE_PROJECT_DIR}`.

@@ -1,6 +1,6 @@
 ---
 name: next
-description: In a chat bound to a keep track, propose the next ticket from the track's STATE.md with a short plan, and wait for approval before writing any code.
+description: In a chat bound to a keep track (the user may call a track a workspace), propose the next ticket from the track's STATE.md with a short plan, and wait for approval before writing any code.
 ---
 If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat moves to another folder after it starts, use the nearest folder at or above the current one that has a `.keep/` wherever this says `${CLAUDE_PROJECT_DIR}`.
 

@@ -1,6 +1,6 @@
 ---
 name: done
-description: In a chat bound to a keep track, verify the current ticket, update the feature's docs and the track's STATE.md, summarize for review, and commit only after approval.
+description: In a chat bound to a keep track (the user may call a track a workspace), verify the current ticket, update the feature's docs and the track's STATE.md, summarize for review, and commit only after approval.
 allowed-tools: Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" add *) Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" commit *)
 ---
 If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat moves to another folder after it starts, use the nearest folder at or above the current one that has a `.keep/` wherever this says `${CLAUDE_PROJECT_DIR}`.

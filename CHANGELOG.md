@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0 · 2026-10-22
+
+- `/keep:current`, or asking which track or workspace this chat is on, shows the chat's track with its current work, next step and start command, or says the chat isn't bound and lists the tracks.
+- The agent understands "workspace" as another word for a track: the skills and the start-of-chat context say so.
+
 ## 0.6.0 · 2026-10-22
 
 - `/keep:rename` renames a track within its feature, or a whole feature, when you type it or ask in words. The folder moves, its headers and git stamps follow, chats bound to it stay bound and get the new name at their next message, and files that still mention the old name are listed rather than changed.
