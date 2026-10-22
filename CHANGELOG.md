@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0 · 2026-10-22
+
+- `/keep:rename` renames a track within its feature, or a whole feature, when you type it or ask in words. The folder moves, its headers and git stamps follow, chats bound to it stay bound and get the new name at their next message, and files that still mention the old name are listed rather than changed.
+
 ## 0.5.1 · 2026-10-21
 
 - A chat that moves to another folder after it starts keeps `CLAUDE_PROJECT_DIR` from the folder it started in. When that folder has no `.keep/`, the hooks, scripts and skills now use the nearest `.keep/` at or above the folder the chat works in, instead of finding nothing and staying silent.

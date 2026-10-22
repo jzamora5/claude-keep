@@ -48,6 +48,7 @@ You only need `/keep:start`, or just say what you want to work on. The agent bri
 | `/keep:next` | Proposes the next ticket with a short plan, and waits for your approval before any code |
 | `/keep:done` | Verifies the ticket and updates the feature's docs; after your approval, commits and marks the ticket done in the state. A failed check stops it |
 | `/keep:save` | Saves the state for the next chat, before `/clear` or when stopping. In a chat that isn't bound yet, it asks which track first |
+| `/keep:rename <feature>[/<track>] <new name>` | Renames a track within its feature, or a whole feature. Its chats stay bound and get the new name at their next message; other files that mention the old name are listed for you to decide. The agent runs it too when you ask |
 | `/keep:close <feature>[/<track>]` | Hands off what's still open, then archives the track or the whole feature. The agent runs it too when you ask it to close one |
 | `/keep:digest <feature>` | Builds a 1–2 page digest of the feature's source docs in a separate context |
 
@@ -114,7 +115,7 @@ keep's skills run their own scripts without asking. Saving STATE.md outside a sk
 
 ## Status
 
-Version 0.5.1, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2, and eight behaviors are checked in real headless sessions with `claude plugin eval` (`bash tests/evals.sh`, cases in `plugins/keep/evals/`). `tests/live-checklist.md` lists the checks that still need a person: several messages in a row, `/clear`, resume, compaction and the app's permission prompts.
+Version 0.6.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2, and eight behaviors are checked in real headless sessions with `claude plugin eval` (`bash tests/evals.sh`, cases in `plugins/keep/evals/`). `tests/live-checklist.md` lists the checks that still need a person: several messages in a row, `/clear`, resume, compaction and the app's permission prompts.
 
 ## Credits
 

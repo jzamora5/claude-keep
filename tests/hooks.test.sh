@@ -387,6 +387,35 @@ out=$(gitenv bash "$H/scripts/setup-git.sh" "$N" ignore history)
 ok "outside a git repo it says there's nothing to ignore and adds the history" '[ -d "$N/.keep/.git" ] && [[ "$out" == *"isn'"'"'t a git repo"* ]]'
 rm -rf "$G" "$N"
 
+echo "--- renaming"
+N=$(mktemp -d "${TMPDIR:-/tmp}/keep-rename.XXXXXX"); NK="$N/.keep"; NS="$NK/.state"
+mkdir -p "$NK/shop/tickets" "$NK/shop/research" "$NS"
+printf '# Feature: shop\n' > "$NK/shop/FEATURE.md"
+printf '# Decisions: shop\n' > "$NK/shop/DECISIONS.md"
+for t in tickets research; do
+  state "shop/$t" none none > "$NK/shop/$t/STATE.md"
+  printf '# Track: shop/%s\n\n**Goal:** %s work\n' "$t" "$t" > "$NK/shop/$t/CONTEXT.md"
+done
+printf -- '- 2026-10-22 · from shop/tickets · a note\n' >> "$NK/shop/research/STATE.md"
+printf 'shop/tickets\n' > "$NS/track-n1"; printf 'shop/tickets\n' > "$NS/track-n2"; printf 'shop/research\n' > "$NS/track-n3"
+printf 'x\n' > "$NS/stamp-shop@tickets"
+out=$(bash "$H/scripts/rename.sh" "$N" shop/tickets build)
+ok "renaming a track moves its folder and updates its headers" '[ -f "$NK/shop/build/STATE.md" ] && [ ! -e "$NK/shop/tickets" ] && head -1 "$NK/shop/build/STATE.md" | grep -qx "# State: shop/build" && head -1 "$NK/shop/build/CONTEXT.md" | grep -qx "# Track: shop/build"'
+ok "its chats stay bound and get the new name at their next message" '[ "$(cat "$NS/track-n1")" = shop/build ] && [ "$(cat "$NS/track-n2")" = shop/build ] && [ "$(cat "$NS/title-n1")" = shop/build ] && [ "$(cat "$NS/track-n3")" = shop/research ] && [ ! -f "$NS/title-n3" ] && [[ "$out" == *"renamed at their next message: 2"* ]]'
+ok "its stamp follows it" '[ -f "$NS/stamp-shop@build" ] && [ ! -e "$NS/stamp-shop@tickets" ]'
+ok "the index lists the new name" 'grep -q "| shop/build |" "$NK/INDEX.md" && ! grep -q "shop/tickets |" "$NK/INDEX.md"'
+ok "other mentions of the old name are listed, not changed" '[[ "$out" == *"Still mention shop/tickets:"*".keep/shop/research/STATE.md"* ]] && grep -q "from shop/tickets" "$NK/shop/research/STATE.md"'
+out=$(printf '{"session_id":"n1","prompt":"carry on"}' | CLAUDE_PROJECT_DIR="$N" "$H/hooks/bind.sh")
+ok "the bind hook renames that chat at its next message" '[ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = shop/build ] && [ ! -f "$NS/title-n1" ]'
+out=$(bash "$H/scripts/rename.sh" "$N" shop store)
+ok "renaming a feature moves it and every binding and stamp under it" '[ -f "$NK/store/build/STATE.md" ] && [ ! -e "$NK/shop" ] && [ "$(cat "$NS/track-n2")" = store/build ] && [ "$(cat "$NS/track-n3")" = store/research ] && [ -f "$NS/stamp-store@build" ] && head -1 "$NK/store/FEATURE.md" | grep -qx "# Feature: store" && head -1 "$NK/store/DECISIONS.md" | grep -qx "# Decisions: store" && head -1 "$NK/store/research/STATE.md" | grep -qx "# State: store/research"'
+for a in "store/nope x" "store/build research" "store/build off" "store/build ../x" "nope x" "store research"; do
+  mkdir -p "$NK/research"
+  out=$(bash "$H/scripts/rename.sh" "$N" $a 2>&1; echo "exit=$?")
+  ok "renaming is refused for: $a" '[[ "$out" == *"exit=1"* ]] && [ -f "$NK/store/build/STATE.md" ] && [ -f "$NK/store/research/STATE.md" ]'
+done
+rm -rf "$N"
+
 echo "--- skill commands"
 ok "nothing refers to a custom keep folder anymore" '! grep -rq KEEP_FOLDER "$H"'
 ok "skills run commands from the project root, not the working directory" '[ -z "$(grep -n "PWD" "$H"/skills/*/SKILL.md | grep -v "freshness.sh")" ]'
