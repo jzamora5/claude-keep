@@ -122,7 +122,7 @@ fi
 add ""
 add "$(bash "$here/../scripts/freshness.sh" "$root" "$binding" "$(field .cwd)" 2>/dev/null | head -n 25)"
 emit "FEATURE.md" "$fdir/FEATURE.md" 2000
-emit "CONTEXT.md" "$tdir/CONTEXT.md" 1500
+emit "CONTEXT.md" "$tdir/CONTEXT.md" 2600
 emit "STATE.md" "$tdir/STATE.md" $(( budget - $(bytes "$out") - 200 )) "Inbox" "Current" "Next step"
 
 if [ "$(bytes "$out")" -gt 9800 ]; then

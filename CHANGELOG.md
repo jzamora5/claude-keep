@@ -3,6 +3,7 @@
 ## 0.6.0 · 2026-10-22
 
 - `/keep:rename` renames a track within its feature, or a whole feature, when you type it or ask in words. The folder moves, its headers and git stamps follow, chats bound to it stay bound and get the new name at their next message, and files that still mention the old name are listed rather than changed.
+- After `/clear`, a resume or a compaction, a track's `CONTEXT.md` reloads whole up to about 2,600 bytes (was 1,500), so its rules aren't cut off. When space runs short, `STATE.md`'s later sections are left out and named instead.
 
 ## 0.5.1 · 2026-10-21
 

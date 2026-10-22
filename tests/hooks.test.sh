@@ -240,6 +240,10 @@ out=$(hook load '{"session_id":"s1","source":"resume"}')
 n=$(printf '%s' "$out" | wc -c | tr -d ' ')
 ok "even an oversized Current is cut under 10,000 bytes ($n)" '[ "$n" -lt 10000 ] && [[ "$out" == *"[Cut to stay under the hook output limit"* ]]'
 ok "the cut falls at a line end, so no character is split" 'printf "%s" "$out" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1'
+printf '# Track: shop/tickets\n**Goal:** ship tickets\n%s\n**Rules for this track:**\n- the last rule\n' "$(head -c 2200 < /dev/zero | tr '\0' 'x')" > "$K/shop/tickets/CONTEXT.md"
+out=$(hook load '{"session_id":"s1","source":"resume"}')
+ok "a CONTEXT.md up to about 2,500 bytes loads whole, rules included" '[[ "$out" == *"- the last rule"* ]]'
+printf '# Track: shop/tickets\n**Goal:** ship tickets\n' > "$K/shop/tickets/CONTEXT.md"
 
 echo "--- index, idle tracks and housekeeping"
 ago() { date -v-"$1"d +%Y%m%d%H%M 2>/dev/null || date -d "$1 days ago" +%Y%m%d%H%M; }
@@ -307,7 +311,8 @@ done
 echo "--- helper scripts"
 out=$(bash "$H/scripts/status.sh" "$R")
 ok "status lists the tracks still open" '[ "$out" = "- shop/tickets: [assumed] a very long current line number one that keeps going — with · marks (start: /keep:start shop)" ]'
-out=$(bash "$H/scripts/status.sh" "$R/api")
+O=$(mktemp -d "${TMPDIR:-/tmp}/keep-none.XXXXXX")
+out=$(cd "$O" && bash "$H/scripts/status.sh" "$R/api"); rm -rf "$O"
 ok "status says when a folder has no keep folder" '[[ "$out" == *"No keep folder at $R/api/.keep"* ]]'
 out=$(bash "$H/scripts/freshness.sh" "$R" shop/research)
 ok "freshness says when there's no stamp" '[[ "$out" == *"No git stamp yet"* ]]'
