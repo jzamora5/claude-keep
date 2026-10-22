@@ -53,6 +53,11 @@ for b in "$st"/track-*; do
   fi
 done
 echo "Chats unbound: $unbound"
+for m in "$st"/named-*; do
+  [ -f "$m" ] || continue
+  v=$(cat "$m")
+  if [ -n "$track" ]; then [ "$v" = "$feature/$track" ] && rm -f "$m"; else [[ "$v" == "$feature"/* ]] && rm -f "$m"; fi
+done
 if [ -n "$track" ]; then rm -f "$(stamp_file "$keep" "$feature/$track")"; else rm -f "$st/stamp-$feature@"*; fi
 
 bash "$(dirname "$0")/index.sh" "$root"

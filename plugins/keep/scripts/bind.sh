@@ -20,6 +20,7 @@ note_jq() {
   command -v jq >/dev/null 2>&1 || echo "Note: jq isn't installed, so keep's hooks are off: no reload after /clear or a compaction, and no save reminders. Install jq to turn them on."
 }
 
+own=$(chat_name "$keep" "$sid")
 if [ "$name" = off ]; then
   unsaved=""
   [ -f "$st/dirty-$sid" ] && unsaved=" Its work since the last save wasn't saved there."
@@ -27,7 +28,7 @@ if [ "$name" = off ]; then
   if [ -z "$title" ]; then
     echo "This chat isn't bound to a track."
   else
-    printf '%s' "$title" > "$st/title-$sid"
+    if [ -n "$own" ]; then unmap_name "$keep" "$own"; else printf '%s' "$title" > "$st/title-$sid"; fi
     echo "Unbound this chat from ${title% (unbound)}.$unsaved"
   fi
   note_jq
@@ -40,6 +41,10 @@ case $? in
   1) echo "No single track matches \"$name\"." >&2; exit 1 ;;
   2) echo "This chat has unsaved work on $target. Save it there first with /keep:save, or unbind with /keep:start off if it doesn't belong there, then bind again." >&2; exit 2 ;;
 esac
-[ "$before" = "$target" ] || printf '%s' "$target" > "$st/title-$sid"
+if [ -n "$own" ]; then
+  map_name "$keep" "$own" "$target"
+elif [ "$before" != "$target" ]; then
+  printf '%s' "$target" > "$st/title-$sid"
+fi
 echo "Bound this chat to $target."
 note_jq

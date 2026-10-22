@@ -105,6 +105,26 @@ unbind_chat() {
   printf '%s (unbound)' "$before"
 }
 
+# A name the user gave a chat survives /clear, so it can stand in for the track name in the title: keep records
+# each chat's own name as SessionStart reports it, remembers which track that name is on, and leaves the name be.
+
+# keep_title <title>: true for a title keep set itself, a track name or one marked unbound.
+keep_title() {
+  [[ "$1" == *" (unbound)" ]] && return 0
+  [[ "$1" == */* ]] && valid_name "${1%%/*}" && valid_name "${1#*/}"
+}
+
+# name_file <keep> <name>: where keep remembers the track a chat with this name is on.
+name_file() { printf '%s/.state/named-%s' "$1" "$(printf '%s' "$2" | cksum | tr ' ' '-')"; }
+
+# chat_name <keep> <session id>: the chat's own name, if the user gave it one.
+chat_name() { cat "$1/.state/name-$2" 2>/dev/null || true; }
+
+# map_name <keep> <name> <track>, named_track <keep> <name>, unmap_name <keep> <name>.
+map_name() { [ -z "$2" ] || printf '%s\n' "$3" > "$(name_file "$1" "$2")"; }
+named_track() { [ -z "$2" ] || cat "$(name_file "$1" "$2")" 2>/dev/null || true; }
+unmap_name() { [ -z "$2" ] || rm -f "$(name_file "$1" "$2")"; }
+
 # section_line <STATE.md> <heading>: the first entry under "## <heading>", skipping comments and blank lines.
 section_line() {
   awk -v h="## $2" 'index($0, "## ") == 1 { c = (index($0, h) == 1); next }

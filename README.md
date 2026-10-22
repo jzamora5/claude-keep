@@ -23,7 +23,7 @@ Everything is plain Markdown in your project, and the hooks make no network or m
 ## How it works
 
 - **Files.** A feature lives in `.keep/<feature>/` with a `FEATURE.md` that points to its source docs (an RFC, PRD, design doc or spec) instead of copying them. Each track (call it a workspace if you like; the agent understands both words) has a `CONTEXT.md` (what it's for), a `STATE.md` (where it stands) and a `NOTES.md` (reference).
-- **Start.** In a new chat, say what you want to work on. When a message starts work (not a quick question), the agent names the matching track, or offers to create one, and asks once whether to keep the work there; say yes and it carries on with your request. Nothing is bound or created until you agree. A ticket still waits for your approval of its plan. You can also type `/keep:start <feature>/<track>`, or a single name when only one track matches it, with your request after it: `/keep:start terms check the new vendor doc`. The chat is named after the track, and `/clear`, a resume or a compaction then reloads the feature and the track by themselves.
+- **Start.** In a new chat, say what you want to work on. When a message starts work (not a quick question), the agent names the matching track, or offers to create one, and asks once whether to keep the work there; say yes and it carries on with your request. Nothing is bound or created until you agree. A ticket still waits for your approval of its plan. You can also type `/keep:start <feature>/<track>`, or a single name when only one track matches it, with your request after it: `/keep:start terms check the new vendor doc`. A chat you haven't named is named after its track; a chat you named keeps its name, and keep remembers which track that name is on. Either way, `/clear`, a resume or a compaction then reloads the feature and the track by themselves. A name you give a chat partway through is picked up at its next start or `/clear`, and two chats with the same name share one remembered track, the most recent.
 - **Opt in mid-chat.** keep does nothing in a chat until you bind it, so an ongoing chat can opt in at any point: ask the agent to work on a track or to save the chat to keep, or type `/keep:start`. If no track fits, the agent proposes a new track, in an existing feature when one fits. When you bind a chat that already has work in it, the agent offers `/keep:save` so what the chat already knows reaches the track.
 - **Stays under the limit.** Hook output over 10,000 characters reaches Claude only as a short preview, so the reload always includes the Inbox, Current and Next step, adds whole sections while they fit, and names the ones it left out.
 - **Decisions.** Each decision is recorded when it's made, with the options it rejected and why, so a later chat doesn't propose them again. The save reminder asks for any decision not recorded yet.
@@ -43,13 +43,13 @@ You only need `/keep:start`, or just say what you want to work on. The agent bri
 
 | Command | What it does |
 | --- | --- |
-| `/keep:start <feature>/<track>` | Binds the chat to a track and names the chat after it; a single name works when only one track matches it, and your request can follow it. The agent runs it too, once you agree to a track it suggested. Without a name, lists the tracks, or proposes a new one and creates it once you confirm. `/keep:start off` unbinds the chat. A chat with unsaved work on one track saves it before switching to another |
+| `/keep:start <feature>/<track>` | Binds the chat to a track, and names the chat after it unless you named the chat yourself; a single name works when only one track matches it, and your request can follow it. The agent runs it too, once you agree to a track it suggested. Without a name, lists the tracks, or proposes a new one and creates it once you confirm. `/keep:start off` unbinds the chat. A chat with unsaved work on one track saves it before switching to another |
 | `/keep:current` | Shows which track this chat is on, with its current work, next step and start command, or says it isn't bound |
 | `/keep:list` | Shows every track with its current work or goal, its last update and the command to start it |
 | `/keep:next` | Proposes the next ticket with a short plan, and waits for your approval before any code |
 | `/keep:done` | Verifies the ticket and updates the feature's docs; after your approval, commits and marks the ticket done in the state. A failed check stops it |
 | `/keep:save` | Saves the state for the next chat, before `/clear` or when stopping. In a chat that isn't bound yet, it asks which track first |
-| `/keep:rename <feature>[/<track>] <new name>` | Renames a track within its feature, or a whole feature. Its chats stay bound and get the new name at their next message; other files that mention the old name are listed for you to decide. The agent runs it too when you ask |
+| `/keep:rename <feature>[/<track>] <new name>` | Renames a track within its feature, or a whole feature. Its chats stay bound, and the ones named after the track get the new name at their next message; other files that mention the old name are listed for you to decide. The agent runs it too when you ask |
 | `/keep:close <feature>[/<track>]` | Hands off what's still open, then archives the track or the whole feature. The agent runs it too when you ask it to close one |
 | `/keep:digest <feature>` | Builds a 1–2 page digest of the feature's source docs in a separate context |
 
@@ -116,7 +116,7 @@ keep's skills run their own scripts without asking. Saving STATE.md outside a sk
 
 ## Status
 
-Version 0.7.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2, and ten behaviors are checked in real headless sessions with `claude plugin eval` (`bash tests/evals.sh`, cases in `plugins/keep/evals/`). `tests/live-checklist.md` lists the checks that still need a person: several messages in a row, `/clear`, resume, compaction and the app's permission prompts.
+Version 0.8.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2, and ten behaviors are checked in real headless sessions with `claude plugin eval` (`bash tests/evals.sh`, cases in `plugins/keep/evals/`). `tests/live-checklist.md` lists the checks that still need a person: several messages in a row, `/clear`, resume, compaction and the app's permission prompts.
 
 ## Credits
 

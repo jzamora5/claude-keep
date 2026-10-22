@@ -38,6 +38,7 @@ for f in "$keep/$to"/*.md "$keep/$to"/*/*.md; do
   sed -E "s,^(# (State|Track|Notes|Feature|Decisions): )$old_re([^A-Za-z0-9._-]|$),\\1$to\\3," "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 done
 
+kept=0
 renamed=0
 for b in "$st"/track-*; do
   [ -f "$b" ] || continue
@@ -51,11 +52,23 @@ for b in "$st"/track-*; do
   [ -n "$nv" ] || continue
   sid="${b##*/track-}"
   printf '%s\n' "$nv" > "$b"
-  # Only a hook can name a chat, so the bind hook applies this at the chat's next message.
+  kept=$((kept + 1))
+  # A chat the user named keeps its name. Only a hook can name a chat, so the bind hook applies this at the
+  # chat's next message.
+  [ -n "$(chat_name "$keep" "$sid")" ] && continue
   printf '%s' "$nv" > "$st/title-$sid"
   renamed=$((renamed + 1))
 done
-echo "Chats kept bound, renamed at their next message: $renamed"
+echo "Chats kept bound: $kept, renamed at their next message: $renamed"
+for m in "$st"/named-*; do
+  [ -f "$m" ] || continue
+  v=$(cat "$m")
+  if [ -n "$track" ]; then
+    [ "$v" = "$old" ] && printf '%s\n' "$to" > "$m"
+  else
+    [[ "$v" == "$old"/* ]] && printf '%s\n' "$to/${v#*/}" > "$m"
+  fi
+done
 
 if [ -n "$track" ]; then
   s=$(stamp_file "$keep" "$old")

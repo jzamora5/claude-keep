@@ -47,5 +47,6 @@ A plugin installed from a local folder is read from that folder, so changes take
 | 23 | In a chat bound to `demo/tickets`, edit a file, then say "switch to the research track" | It saves the edit to `demo/tickets` first, then binds `demo/research` |
 | 24 | `/keep:start off` | The chat is unbound, renamed `demo/research (unbound)`, and isn't rebound after `/clear` |
 | 25 | In default permission mode, `/keep:start demo/tickets` | No permission prompt for keep's own scripts |
+| 26 | In a new chat, `/rename my-review`, then `/keep:start tickets`, then `/clear` and ask "which workspace is this?" | The chat keeps the name `my-review` throughout, and after `/clear` it's still on `demo/tickets` |
 
 Write down anything that differs, with the exact output.

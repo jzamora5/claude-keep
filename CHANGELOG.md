@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0 · 2026-10-22
+
+- keep no longer renames a chat you named yourself. It remembers which track that name is on instead, and since Claude Code keeps your name through `/clear`, the chat still finds its track again. Chats with only an auto-generated title are still named after their track. A name you give a chat partway through is picked up at its next start or `/clear`.
+
 ## 0.7.0 · 2026-10-22
 
 - `/keep:current`, or asking which track or workspace this chat is on, shows the chat's track with its current work, next step and start command, or says the chat isn't bound and lists the tracks.

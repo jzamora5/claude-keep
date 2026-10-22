@@ -71,12 +71,22 @@ emit() {
   [ -n "$left" ] && add "[Not loaded, to stay under the hook output limit: $left. Read $(rel "$f") for them.]"
 }
 
-# The bind hook names the chat "<feature>/<track>", so a session that starts without a binding
-# (after /clear or a resume) can be rebound by its title.
+# A session that starts without a binding (after /clear) is rebound by its title: a chat keep named after its
+# track by that name, and a chat the user named through the track keep remembered for the name.
 if [ -z "$binding" ] && [[ "$title" == */* ]] && valid_name "${title%%/*}" && valid_name "${title#*/}" \
    && [ -f "$keep/$title/STATE.md" ]; then
   binding="$title"
   printf '%s\n' "$binding" > "$st/track-$sid"
+fi
+if [ -n "$title" ] && ! keep_title "$title"; then
+  printf '%s\n' "$title" > "$st/name-$sid"
+  if [ -z "$binding" ]; then
+    named=$(named_track "$keep" "$title")
+    [ -n "$named" ] && [ -f "$keep/$named/STATE.md" ] && binding="$named"
+  fi
+  [ -n "$binding" ] && [ -f "$keep/$binding/STATE.md" ] && map_name "$keep" "$title" "$binding"
+else
+  rm -f "$st/name-$sid"
 fi
 [ "$src" = "clear" ] && rm -f "$st/compactions-$sid"
 

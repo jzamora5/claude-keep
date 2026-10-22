@@ -135,6 +135,24 @@ out=$(hook load '{"session_id":"nobody","source":"startup"}')
 ok "so is an unbound one" '[[ "$out" == *"The user may call a track a workspace."* ]]'
 ok "every skill about tracks mentions the word workspace" '[ -z "$(grep -L "workspace" "$H"/skills/{start,current,list,rename,close,save,next,done}/SKILL.md)" ]'
 
+echo "--- chats the user named"
+nf() { (. "$H/scripts/common.sh"; name_file "$K" "$1"); }
+hook load '{"session_id":"u1","source":"startup","session_title":"CASH-508 withdrawal"}' >/dev/null
+ok "keep records the name a user gave a chat" '[ "$(cat "$st/name-u1")" = "CASH-508 withdrawal" ]'
+out=$(hook bind '{"session_id":"u1","prompt":"/keep:start shop/tickets"}')
+ok "binding it keeps that name and remembers its track" '[ -z "$out" ] && [ "$(cat "$st/track-u1")" = shop/tickets ] && [ "$(cat "$(nf "CASH-508 withdrawal")")" = shop/tickets ]'
+out=$(hook load '{"session_id":"u2","source":"clear","session_title":"CASH-508 withdrawal"}')
+ok "after /clear the same name finds the track again" '[[ "$out" == *"Active track: shop/tickets"* ]] && [ "$(cat "$st/track-u2")" = shop/tickets ]'
+hook load '{"session_id":"u3","source":"resume","session_title":"shop/research"}' >/dev/null
+ok "a title keep set isn't taken for the user's name" '[ ! -f "$st/name-u3" ] && [ "$(cat "$st/track-u3")" = shop/research ]'
+hook load '{"session_id":"u4","source":"startup","session_title":"My review"}' >/dev/null
+bash "$H/scripts/bind.sh" "$R" u4 research >/dev/null
+ok "the start skill's bind keeps a named chat's name too" '[ ! -f "$st/title-u4" ] && [ "$(cat "$(nf "My review")")" = shop/research ]'
+out=$(hook bind '{"session_id":"u1","prompt":"/keep:start off"}')
+hook load '{"session_id":"u5","source":"clear","session_title":"CASH-508 withdrawal"}' >/dev/null
+ok "unbinding a named chat keeps its name and forgets its track" '[ -z "$out" ] && [ ! -f "$st/track-u1" ] && [ ! -f "$(nf "CASH-508 withdrawal")" ] && [ ! -f "$st/track-u5" ]'
+rm -f "$st"/track-u2 "$st"/track-u3 "$st"/track-u4
+
 echo "--- a chat that moved to another folder"
 M=$(mktemp -d "${TMPDIR:-/tmp}/keep-moved.XXXXXX")
 out=$(printf '{"session_id":"mv1","prompt":"/keep:start shop/tickets","cwd":"%s"}' "$R/api" | CLAUDE_PROJECT_DIR="$M" "$H/hooks/bind.sh")
@@ -295,6 +313,7 @@ echo "--- closing"
 out=$(bash "$H/scripts/archive.sh" "$R" shop/research)
 ok "closing a track moves it into the archive" '[ -f "$K/_archive/shop/research/STATE.md" ] && [ ! -e "$K/shop/research" ] && [[ "$out" == *"Moved .keep/shop/research to .keep/_archive/shop/research"* ]]'
 ok "both chats bound to it are unbound, others keep theirs" '[ ! -f "$st/track-s2" ] && [ ! -f "$st/track-s5" ] && [ -f "$st/track-s1" ] && [[ "$out" == *"Chats unbound: 2"* ]]'
+ok "closing forgets the names remembered for it" '[ ! -f "$(nf "My review")" ]'
 ok "the index drops it and counts the archive" '! grep -q "shop/research" "$K/INDEX.md" && grep -q "Archived tracks: 1" "$K/INDEX.md"'
 out=$(bash "$H/scripts/status.sh" "$R")
 ok "the archive never shows up as a feature" '[[ "$out" != *_archive* ]] && [ "$(printf "%s\n" "$out" | wc -l | tr -d " ")" = 2 ]'
@@ -417,9 +436,12 @@ done
 printf -- '- 2026-10-22 · from shop/tickets · a note\n' >> "$NK/shop/research/STATE.md"
 printf 'shop/tickets\n' > "$NS/track-n1"; printf 'shop/tickets\n' > "$NS/track-n2"; printf 'shop/research\n' > "$NS/track-n3"
 printf 'x\n' > "$NS/stamp-shop@tickets"
+printf 'shop/tickets\n' > "$NS/track-n4"; printf 'Review chat\n' > "$NS/name-n4"
+NF=$(. "$H/scripts/common.sh"; name_file "$NK" "Review chat"); printf 'shop/tickets\n' > "$NF"
 out=$(bash "$H/scripts/rename.sh" "$N" shop/tickets build)
 ok "renaming a track moves its folder and updates its headers" '[ -f "$NK/shop/build/STATE.md" ] && [ ! -e "$NK/shop/tickets" ] && head -1 "$NK/shop/build/STATE.md" | grep -qx "# State: shop/build" && head -1 "$NK/shop/build/CONTEXT.md" | grep -qx "# Track: shop/build"'
 ok "its chats stay bound and get the new name at their next message" '[ "$(cat "$NS/track-n1")" = shop/build ] && [ "$(cat "$NS/track-n2")" = shop/build ] && [ "$(cat "$NS/title-n1")" = shop/build ] && [ "$(cat "$NS/track-n3")" = shop/research ] && [ ! -f "$NS/title-n3" ] && [[ "$out" == *"renamed at their next message: 2"* ]]'
+ok "a chat the user named stays bound, keeps its name, and its remembered track follows" '[ "$(cat "$NS/track-n4")" = shop/build ] && [ ! -f "$NS/title-n4" ] && [ "$(cat "$NF")" = shop/build ] && [[ "$out" == *"Chats kept bound: 3, renamed at their next message: 2"* ]]'
 ok "its stamp follows it" '[ -f "$NS/stamp-shop@build" ] && [ ! -e "$NS/stamp-shop@tickets" ]'
 ok "the index lists the new name" 'grep -q "| shop/build |" "$NK/INDEX.md" && ! grep -q "shop/tickets |" "$NK/INDEX.md"'
 ok "other mentions of the old name are listed, not changed" '[[ "$out" == *"Still mention shop/tickets:"*".keep/shop/research/STATE.md"* ]] && grep -q "from shop/tickets" "$NK/shop/research/STATE.md"'
