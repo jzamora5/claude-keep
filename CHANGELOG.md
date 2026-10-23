@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.15.0 · 2026-10-23
+
+**Breaking:** keep is now **trackside**. Two other Claude Code plugins are named `keep`, and when two enabled plugins share a name, Claude Code runs the hooks of only one of them, so the reload, the save reminder and the stamps could silently stop.
+
+- Install `trackside@claude-trackside` from github.com/jzamora5/claude-trackside; the old URL redirects. Commands are `/trackside:start`, `/trackside:save` and the rest, and the subagents are `trackside:doc-expert` and `trackside:auditor`.
+- The state folder is `.trackside/` instead of `.keep/`. To move a project's tracks, rename the folder, replace `.keep/` with `.trackside/` in its files and in your `CLAUDE.md`, and update a `/.keep/` line in `.git/info/exclude` if `setup-git.sh ignore` wrote one. The chat bindings in `.state/` move with the folder.
+- `KEEP_SAVE_MINUTES`, `KEEP_IDLE_DAYS` and `KEEP_STATE_DAYS` are now `TRACKSIDE_SAVE_MINUTES`, `TRACKSIDE_IDLE_DAYS` and `TRACKSIDE_STATE_DAYS`.
+
 ## 0.14.0 · 2026-10-23
 
 - The state is saved before the reply, not after it. Once a save is due, the first edit or research of a turn asks the agent to update `STATE.md` before it writes its reply, once per save. The Stop hook still catches a turn that ended without saving, and now asks for a quiet update that ends with no more text, or with the reply's question repeated so it stays the last thing you see.

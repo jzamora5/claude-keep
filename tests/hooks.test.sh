@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Runs the keep hooks against simulated hook inputs in a scratch project. Usage: bash tests/hooks.test.sh
+# Runs the trackside hooks against simulated hook inputs in a scratch project. Usage: bash tests/hooks.test.sh
 set -uo pipefail
-H="$(cd "$(dirname "$0")/../plugins/keep" && pwd)"
-R=$(mktemp -d "${TMPDIR:-/tmp}/keep-test.XXXXXX")
+H="$(cd "$(dirname "$0")/../plugins/trackside" && pwd)"
+R=$(mktemp -d "${TMPDIR:-/tmp}/trackside-test.XXXXXX")
 trap 'rm -rf "$R"' EXIT
 export CLAUDE_PROJECT_DIR="$R"
-unset COMPACT_LIMIT KEEP_IDLE_DAYS KEEP_STATE_DAYS KEEP_SAVE_MINUTES
-K="$R/.keep"
+unset COMPACT_LIMIT TRACKSIDE_IDLE_DAYS TRACKSIDE_STATE_DAYS TRACKSIDE_SAVE_MINUTES
+K="$R/.trackside"
 st="$K/.state"
 pass=0; fail=0
 ok() { if eval "$2"; then pass=$((pass + 1)); echo "PASS $1"; else fail=$((fail + 1)); echo "FAIL $1"; fi; }
@@ -26,37 +26,37 @@ state shop/tickets "T-7 checkout fix" "edit api/cart.js applyDiscount" > "$K/sho
 state shop/research "pricing question" "read the vendor docs" > "$K/shop/research/STATE.md"
 state solo/main "none" "none" > "$K/solo/main/STATE.md"
 
-echo "--- no keep folder"
-E=$(mktemp -d "${TMPDIR:-/tmp}/keep-empty.XXXXXX")
+echo "--- no trackside folder"
+E=$(mktemp -d "${TMPDIR:-/tmp}/trackside-empty.XXXXXX")
 for h in bind load track stop; do
-  out=$(printf '{"session_id":"s1","prompt":"/keep:start shop/tickets","source":"startup"}' | CLAUDE_PROJECT_DIR="$E" "$H/hooks/$h.sh"; echo "exit=$?")
-  ok "$h is silent without a keep folder" '[ "$out" = "exit=0" ] && [ ! -e "$E/.keep" ]'
+  out=$(printf '{"session_id":"s1","prompt":"/trackside:start shop/tickets","source":"startup"}' | CLAUDE_PROJECT_DIR="$E" "$H/hooks/$h.sh"; echo "exit=$?")
+  ok "$h is silent without a trackside folder" '[ "$out" = "exit=0" ] && [ ! -e "$E/.trackside" ]'
 done
 rm -rf "$E"
 
 echo "--- binding"
 out=$(hook load '{"session_id":"s1","source":"startup"}')
-ok "unbound chat lists tracks with their current work" '[[ "$out" == *"No keep track is bound"* && "$out" == *"shop/tickets: Ticket: T-7 checkout fix"* && "$out" == *"solo/main"* ]]'
+ok "unbound chat lists tracks with their current work" '[[ "$out" == *"No track is bound"* && "$out" == *"shop/tickets: Ticket: T-7 checkout fix"* && "$out" == *"solo/main"* ]]'
 ok "and tells the agent to bind on its own when one track clearly fits, for real work only" '[[ "$out" == *"starts work"* && "$out" == *"not a quick question"* && "$out" == *"if one track clearly fits it"* && "$out" == *"bind the chat to it right away"* ]]'
 ok "to ask only when more than one could fit, and to create a track only once the user agrees" '[[ "$out" == *"If more than one track could fit, ask once which"* && "$out" == *"offer once to create a track, and create it only after the user agrees"* && "$out" == *"once the user unbinds it or turns a track down"* ]]'
-X=$(mktemp -d "${TMPDIR:-/tmp}/keep-none.XXXXXX"); mkdir -p "$X/.keep"
+X=$(mktemp -d "${TMPDIR:-/tmp}/trackside-none.XXXXXX"); mkdir -p "$X/.trackside"
 out=$(printf '{"session_id":"x1","source":"startup"}' | CLAUDE_PROJECT_DIR="$X" "$H/hooks/load.sh")
-ok "a keep folder with no tracks yet still offers to create one" '[[ "$out" == *"offer once to create a track"* && "$out" != *"Tracks, their"* ]]'
+ok "a trackside folder with no tracks yet still offers to create one" '[[ "$out" == *"offer once to create a track"* && "$out" != *"Tracks, their"* ]]'
 rm -rf "$X"
 ok "the state folder ignores itself in git" '[ "$(cat "$st/.gitignore")" = "*" ]'
-out=$(hook bind '{"session_id":"s1","prompt":"/keep:start shop/tickets"}')
+out=$(hook bind '{"session_id":"s1","prompt":"/trackside:start shop/tickets"}')
 ok "bind names the chat after the track" '[ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = shop/tickets ]'
 ok "bind records the binding" '[ "$(cat "$st/track-s1")" = shop/tickets ]'
 out=$(hook bind '{"session_id":"s2","prompt":"/start shop/research"}')
 ok "the unprefixed form binds too" '[ "$(cat "$st/track-s2" 2>/dev/null)" = shop/research ]'
-for p in "/keep:start solo" "/keep:start research" "/keep:start main" "/keep:start research fix the totals"; do
+for p in "/trackside:start solo" "/trackside:start research" "/trackside:start main" "/trackside:start research fix the totals"; do
   hook bind "{\"session_id\":\"r1\",\"prompt\":\"$p\"}" >/dev/null
-  ok "a bare name doesn't bind, even when one track has it: ${p#/keep:start }" '[ ! -f "$st/track-r1" ]'
+  ok "a bare name doesn't bind, even when one track has it: ${p#/trackside:start }" '[ ! -f "$st/track-r1" ]'
 done
-hook bind '{"session_id":"s3","prompt":"/keep:start solo/main"}' >/dev/null
+hook bind '{"session_id":"s3","prompt":"/trackside:start solo/main"}' >/dev/null
 out=$(bash "$H/scripts/status.sh" "$R")
-ok "the listing gives each track's full start command" '[[ "$out" == *"shop/tickets: Ticket: T-7 checkout fix (start: /keep:start shop/tickets)"* && "$out" == *"(start: /keep:start solo/main)"* ]]'
-out=$(hook bind '{"session_id":"s8","prompt":"/keep:start shop/tickets and continue"}')
+ok "the listing gives each track's full start command" '[[ "$out" == *"shop/tickets: Ticket: T-7 checkout fix (start: /trackside:start shop/tickets)"* && "$out" == *"(start: /trackside:start solo/main)"* ]]'
+out=$(hook bind '{"session_id":"s8","prompt":"/trackside:start shop/tickets and continue"}')
 ok "words after the track are fine" '[ "$(cat "$st/track-s8" 2>/dev/null)" = shop/tickets ]'; rm -f "$st/track-s8"
 
 echo "--- binding from the start skill"
@@ -68,14 +68,14 @@ out=$(hook bind '{"session_id":"b1","prompt":"and then this"}')
 ok "only once" '[ -z "$out" ]'
 bash "$H/scripts/bind.sh" "$R" b1 shop/research >/dev/null
 ok "binding the same track again doesn't rename the chat" '[ ! -f "$st/title-b1" ]'
-out=$(hook bind '{"session_id":"b2","prompt":"/keep:start shop/tickets"}'); bash "$H/scripts/bind.sh" "$R" b2 shop/tickets >/dev/null
-ok "after a typed /keep:start, the skill's bind is a no-op" '[ "$(cat "$st/track-b2")" = shop/tickets ] && [ ! -f "$st/title-b2" ]'
+out=$(hook bind '{"session_id":"b2","prompt":"/trackside:start shop/tickets"}'); bash "$H/scripts/bind.sh" "$R" b2 shop/tickets >/dev/null
+ok "after a typed /trackside:start, the skill's bind is a no-op" '[ "$(cat "$st/track-b2")" = shop/tickets ] && [ ! -f "$st/title-b2" ]'
 for a in "b1 shop" "b1 research" "b1 nope" "b1 ../shop/tickets" "b1 shop/tickets/extra" '${CLAUDE_SESSION_ID} shop/research' "b3"; do
   out=$(bash "$H/scripts/bind.sh" "$R" $a 2>&1; echo "exit=$?")
   ok "the bind script refuses: $a" '[[ "$out" == *"exit=1"* ]] && [ "$(cat "$st/track-b1")" = shop/research ] && [ ! -f "$st/track-b3" ]'
 done
 touch "$st/dirty-b2"
-out=$(hook bind '{"session_id":"b2","prompt":"/keep:start shop/research"}')
+out=$(hook bind '{"session_id":"b2","prompt":"/trackside:start shop/research"}')
 ok "a typed switch with unsaved work doesn't rebind" '[ -z "$out" ] && [ "$(cat "$st/track-b2")" = shop/tickets ]'
 out=$(bash "$H/scripts/bind.sh" "$R" b2 shop/research 2>&1; echo "exit=$?")
 ok "and the bind script says to save it there first" '[[ "$out" == *"unsaved work on shop/tickets. Save it there first"* && "$out" == *"exit=2"* ]] && [ "$(cat "$st/track-b2")" = shop/tickets ]'
@@ -88,21 +88,21 @@ ok "off unbinds the chat and says its unsaved work wasn't saved" '[ ! -f "$st/tr
 out=$(hook bind '{"session_id":"b2","prompt":"ok"}')
 ok "the chat is renamed so its title can't rebind it" '[ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = "shop/research (unbound)" ]'
 out=$(hook load '{"session_id":"b9","source":"clear","session_title":"shop/research (unbound)"}')
-ok "a cleared chat with that title stays unbound, and isn't bound on its own" '[ ! -f "$st/track-b9" ] && [[ "$out" == *"No keep track is bound"* && "$out" == *"The user unbound this chat from its track, so don'"'"'t bind it on your own"* && "$out" != *"bind the chat to it right away"* ]]'
+ok "a cleared chat with that title stays unbound, and isn't bound on its own" '[ ! -f "$st/track-b9" ] && [[ "$out" == *"No track is bound"* && "$out" == *"The user unbound this chat from its track, so don'"'"'t bind it on your own"* && "$out" != *"bind the chat to it right away"* ]]'
 out=$(bash "$H/scripts/bind.sh" "$R" b2 off)
 ok "off on an unbound chat says so" '[ "$out" = "This chat isn'"'"'t bound to a track." ]'
-hook bind '{"session_id":"b4","prompt":"/keep:start shop/tickets"}' >/dev/null
-out=$(hook bind '{"session_id":"b4","prompt":"/keep:start off"}')
-ok "a typed /keep:start off unbinds and renames at once" '[ ! -f "$st/track-b4" ] && [ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = "shop/tickets (unbound)" ]'
-B=$(mktemp -d "${TMPDIR:-/tmp}/keep-nojq.XXXXXX")
+hook bind '{"session_id":"b4","prompt":"/trackside:start shop/tickets"}' >/dev/null
+out=$(hook bind '{"session_id":"b4","prompt":"/trackside:start off"}')
+ok "a typed /trackside:start off unbinds and renames at once" '[ ! -f "$st/track-b4" ] && [ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = "shop/tickets (unbound)" ]'
+B=$(mktemp -d "${TMPDIR:-/tmp}/trackside-nojq.XXXXXX")
 for c in dirname mkdir cat basename wc tr rm; do ln -s "$(command -v "$c")" "$B/$c"; done
 out=$(PATH="$B" /bin/bash "$H/scripts/bind.sh" "$R" j1 shop/research)
-ok "without jq, binding says keep's hooks are off" '[[ "$out" == *"Bound this chat to shop/research."* && "$out" == *"jq isn'"'"'t installed"* ]]'
+ok "without jq, binding says trackside's hooks are off" '[[ "$out" == *"Bound this chat to shop/research."* && "$out" == *"jq isn'"'"'t installed"* ]]'
 out=$(bash "$H/scripts/bind.sh" "$R" j2 shop/research)
 ok "with jq it doesn't" '[[ "$out" != *jq* ]]'
 rm -rf "$B"; rm -f "$st/track-b1" "$st/track-b2" "$st/track-j1" "$st/track-j2" "$st"/title-*
 ok "the agent can run every skill, close included, when the user asks" '! grep -q "disable-model-invocation" "$H"/skills/*/SKILL.md && grep -q "asks in words to close one; never on your own" "$H/skills/close/SKILL.md"'
-for p in "/keep:start shop" "/keep:start shop/nope" "/keep:start ../shop/tickets" "/keep:start .state/x" "hello /keep:start shop/tickets" "/keep:startshop/tickets" "/keep:start shop/tickets/extra"; do
+for p in "/trackside:start shop" "/trackside:start shop/nope" "/trackside:start ../shop/tickets" "/trackside:start .state/x" "hello /trackside:start shop/tickets" "/trackside:startshop/tickets" "/trackside:start shop/tickets/extra"; do
   out=$(hook bind "{\"session_id\":\"s4\",\"prompt\":\"$p\"}")
   ok "no binding for: $p" '[ -z "$out" ] && [ ! -f "$st/track-s4" ]'
 done
@@ -110,20 +110,20 @@ done
 echo "--- loading"
 out=$(hook load '{"session_id":"s1","source":"resume"}')
 ok "bound chat loads feature, context and state" '[[ "$out" == *"Active track: shop/tickets"* && "$out" == *"**Repos:** api, web"* && "$out" == *"ship tickets"* && "$out" == *"T-7 checkout fix"* ]]'
-ok "it gives the full command that starts the track in a new chat" '[[ "$out" == *"Active track: shop/tickets (a new chat starts it with /keep:start shop/tickets)"* ]]'
+ok "it gives the full command that starts the track in a new chat" '[[ "$out" == *"Active track: shop/tickets (a new chat starts it with /trackside:start shop/tickets)"* ]]'
 ok "it asks for decisions to be recorded when they're made" '[[ "$out" == *"Record each decision as soon as it'"'"'s made"* ]]'
 ok "without a stamp it says nothing was checked against git" '[[ "$out" == *"No git stamp yet"* ]]'
 ok "no compaction notes on resume" '[[ "$out" != *compacted* ]]'
 
 echo "--- the current track"
 out=$(bash "$H/scripts/current.sh" "$R" s1)
-ok "current shows this chat's track, its current work, next step and start command" '[[ "$out" == *"This chat is on shop/tickets. A new chat starts it with /keep:start shop/tickets."* && "$out" == *"Current: Ticket: T-7 checkout fix"* && "$out" == *"Next step: edit api/cart.js applyDiscount"* ]]'
+ok "current shows this chat's track, its current work, next step and start command" '[[ "$out" == *"This chat is on shop/tickets. A new chat starts it with /trackside:start shop/tickets."* && "$out" == *"Current: Ticket: T-7 checkout fix"* && "$out" == *"Next step: edit api/cart.js applyDiscount"* ]]'
 out=$(bash "$H/scripts/current.sh" "$R" nobody)
 ok "an unbound chat is told so, with the tracks to pick from" '[[ "$out" == *"This chat isn'"'"'t bound to a track."* && "$out" == *"- shop/research:"* ]]'
 out=$(bash "$H/scripts/current.sh" "$R" "../x" 2>&1; echo "exit=$?")
 ok "current refuses a bad session id" '[[ "$out" == *"exit=1"* ]]'
 out=$(hook load '{"session_id":"s1","source":"resume"}')
-ok "a bound chat is told a track may be called a workspace" '[[ "$out" == *"The user may call a track a workspace; /keep:current shows this one."* ]]'
+ok "a bound chat is told a track may be called a workspace" '[[ "$out" == *"The user may call a track a workspace; /trackside:current shows this one."* ]]'
 out=$(hook load '{"session_id":"nobody","source":"startup"}')
 ok "so is an unbound one" '[[ "$out" == *"The user may call a track a workspace."* ]]'
 ok "every skill about tracks mentions the word workspace" '[ -z "$(grep -L "workspace" "$H"/skills/{start,current,list,rename,close,save,next,done}/SKILL.md)" ]'
@@ -131,17 +131,17 @@ ok "every skill about tracks mentions the word workspace" '[ -z "$(grep -L "work
 echo "--- chats the user named"
 nf() { (. "$H/scripts/common.sh"; name_file "$K" "$1"); }
 hook load '{"session_id":"u1","source":"startup","session_title":"CASH-508 withdrawal"}' >/dev/null
-ok "keep records the name a user gave a chat" '[ "$(cat "$st/name-u1")" = "CASH-508 withdrawal" ]'
-out=$(hook bind '{"session_id":"u1","prompt":"/keep:start shop/tickets"}')
+ok "trackside records the name a user gave a chat" '[ "$(cat "$st/name-u1")" = "CASH-508 withdrawal" ]'
+out=$(hook bind '{"session_id":"u1","prompt":"/trackside:start shop/tickets"}')
 ok "binding it keeps that name and remembers its track" '[ -z "$out" ] && [ "$(cat "$st/track-u1")" = shop/tickets ] && [ "$(cat "$(nf "CASH-508 withdrawal")")" = shop/tickets ]'
 out=$(hook load '{"session_id":"u2","source":"clear","session_title":"CASH-508 withdrawal"}')
 ok "after /clear the same name finds the track again" '[[ "$out" == *"Active track: shop/tickets"* ]] && [ "$(cat "$st/track-u2")" = shop/tickets ]'
 hook load '{"session_id":"u3","source":"resume","session_title":"shop/research"}' >/dev/null
-ok "a title keep set isn't taken for the user's name" '[ ! -f "$st/name-u3" ] && [ "$(cat "$st/track-u3")" = shop/research ]'
+ok "a title trackside set isn't taken for the user's name" '[ ! -f "$st/name-u3" ] && [ "$(cat "$st/track-u3")" = shop/research ]'
 hook load '{"session_id":"u4","source":"startup","session_title":"My review"}' >/dev/null
 bash "$H/scripts/bind.sh" "$R" u4 shop/research >/dev/null
 ok "the start skill's bind keeps a named chat's name too" '[ ! -f "$st/title-u4" ] && [ "$(cat "$(nf "My review")")" = shop/research ]'
-out=$(hook bind '{"session_id":"u1","prompt":"/keep:start off"}')
+out=$(hook bind '{"session_id":"u1","prompt":"/trackside:start off"}')
 ok "unbinding a named chat keeps its name and remembers it was unbound" '[ -z "$out" ] && [ ! -f "$st/track-u1" ] && [ "$(cat "$(nf "CASH-508 withdrawal")")" = off ]'
 out=$(hook load '{"session_id":"u5","source":"clear","session_title":"CASH-508 withdrawal"}')
 ok "so after /clear it stays unbound and isn't bound on its own" '[ ! -f "$st/track-u5" ] && [[ "$out" == *"The user unbound this chat from its track"* && "$out" != *"bind the chat to it right away"* ]]'
@@ -152,22 +152,22 @@ ok "binding it again replaces that" '[ "$(cat "$(nf "My review")")" = shop/resea
 rm -f "$st"/track-u2 "$st"/track-u3 "$st"/track-u4
 
 echo "--- a chat that moved to another folder"
-M=$(mktemp -d "${TMPDIR:-/tmp}/keep-moved.XXXXXX")
-out=$(printf '{"session_id":"mv1","prompt":"/keep:start shop/tickets","cwd":"%s"}' "$R/api" | CLAUDE_PROJECT_DIR="$M" "$H/hooks/bind.sh")
-ok "a chat that started elsewhere finds the keep folder from where it works now" '[ "$(cat "$st/track-mv1" 2>/dev/null)" = shop/tickets ] && [ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = shop/tickets ]'
+M=$(mktemp -d "${TMPDIR:-/tmp}/trackside-moved.XXXXXX")
+out=$(printf '{"session_id":"mv1","prompt":"/trackside:start shop/tickets","cwd":"%s"}' "$R/api" | CLAUDE_PROJECT_DIR="$M" "$H/hooks/bind.sh")
+ok "a chat that started elsewhere finds the trackside folder from where it works now" '[ "$(cat "$st/track-mv1" 2>/dev/null)" = shop/tickets ] && [ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = shop/tickets ]'
 out=$(printf '{"session_id":"mv1","source":"resume","cwd":"%s"}' "$R/api" | CLAUDE_PROJECT_DIR="$M" "$H/hooks/load.sh")
 ok "and loads its track" '[[ "$out" == *"Active track: shop/tickets"* ]]'
 printf '{"session_id":"mv1","tool_name":"Edit","tool_input":{"file_path":"%s"},"cwd":"%s"}' "$R/api/cart.js" "$R/api" | CLAUDE_PROJECT_DIR="$M" "$H/hooks/track.sh"
 ok "and counts its edits" '[ -f "$st/dirty-mv1" ]'
 out=$(cd "$R/api" && bash "$H/scripts/status.sh" "$M")
 ok "the scripts find it the same way" '[[ "$out" == *"shop/tickets"* ]]'
-out=$(printf '{"session_id":"mv2","prompt":"/keep:start shop/tickets","cwd":"%s"}' "$M" | CLAUDE_PROJECT_DIR="$M" "$H/hooks/bind.sh"; echo "exit=$?")
-ok "with no keep folder at or above it, keep stays silent" '[ "$out" = "exit=0" ] && [ ! -e "$M/.keep" ]'
+out=$(printf '{"session_id":"mv2","prompt":"/trackside:start shop/tickets","cwd":"%s"}' "$M" | CLAUDE_PROJECT_DIR="$M" "$H/hooks/bind.sh"; echo "exit=$?")
+ok "with no trackside folder at or above it, trackside stays silent" '[ "$out" = "exit=0" ] && [ ! -e "$M/.trackside" ]'
 missing=""
 for f in "$H"/skills/*/SKILL.md; do
-  grep -q "CLAUDE_PROJECT_DIR" "$f" && ! grep -q "has no \`.keep/\` folder, which happens when a chat moves" "$f" && missing="$missing ${f#$H/}"
+  grep -q "CLAUDE_PROJECT_DIR" "$f" && ! grep -q "has no \`.trackside/\` folder, which happens when a chat moves" "$f" && missing="$missing ${f#$H/}"
 done
-ok "every skill that uses the project folder says what to do when it has no .keep/${missing:+ (missing:$missing)}" '[ -z "$missing" ]'
+ok "every skill that uses the project folder says what to do when it has no .trackside/${missing:+ (missing:$missing)}" '[ -z "$missing" ]'
 rm -f "$st/track-mv1" "$st/dirty-mv1"; rm -rf "$M"
 
 echo "--- tracking and the Stop gate"
@@ -175,12 +175,12 @@ edit() { hook track "{\"session_id\":\"$1\",\"tool_name\":\"$2\",\"tool_input\":
 edit_out() { hook track "{\"session_id\":\"$1\",\"tool_name\":\"$2\",\"tool_input\":{\"file_path\":\"$3\"}}"; }
 stop() { hook stop "{\"session_id\":\"$1\",\"stop_hook_active\":$2}"; }
 out=$(stop s1 false);                                  ok "stop passes while clean" '[ -z "$out" ]'
-edit s1 Edit "$K/shop/FEATURE.md";                     ok "editing keep files stays clean" '[ ! -f "$st/dirty-s1" ]'
+edit s1 Edit "$K/shop/FEATURE.md";                     ok "editing trackside files stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Edit "$K/shop/research/STATE.md";              ok "editing another track's state stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Edit "$R/.claude/settings.json";               ok "editing the project's .claude stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Write "$HOME/.claude/projects/p/memory/MEMORY.md"; ok "writing Claude's own memory or plans stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Edit "$R/CLAUDE.md";                           ok "editing a CLAUDE.md stays clean" '[ ! -f "$st/dirty-s1" ]'
-edit s1 Write "/tmp/keep-elsewhere/scratch-note.md";   ok "an edit outside the project folder stays clean" '[ ! -f "$st/dirty-s1" ]'
+edit s1 Write "/tmp/trackside-elsewhere/scratch-note.md";   ok "an edit outside the project folder stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Edit "$R/.claude/worktrees/w1/api/cart.js";    ok "an edit in a Claude Code worktree marks the chat dirty" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
 edit s1 Edit "$R/api/.claude/notes.md";                ok "a repo's own .claude folder counts as project files" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
 edit s1 Edit "$R/api/cart.js";                         ok "a project edit marks the chat dirty" '[ -f "$st/dirty-s1" ]'
@@ -188,16 +188,16 @@ out=$(stop s1 false);                                  ok "a chat that hasn't sa
 edit s1 Edit "$K/shop/tickets/STATE.md"; edit s1 Edit "$R/api/cart.js"
 ok "(setup) saving starts this chat's own clock" '[ -f "$st/saved-s1" ] && [ -f "$st/dirty-s1" ]'
 out=$(stop s1 false);                                  ok "stop waits while this chat saved in the last 15 minutes" '[ -z "$out" ] && [ -f "$st/dirty-s1" ]'
-out=$(KEEP_SAVE_MINUTES=0 stop s1 false);              ok "KEEP_SAVE_MINUTES=0 asks after every working turn" '[ -n "$out" ]'
+out=$(TRACKSIDE_SAVE_MINUTES=0 stop s1 false);              ok "TRACKSIDE_SAVE_MINUTES=0 asks after every working turn" '[ -n "$out" ]'
 mins_ago() { date -v-"$1"M +%Y%m%d%H%M 2>/dev/null || date -d "$1 minutes ago" +%Y%m%d%H%M; }
 touch -t "$(mins_ago 20)" "$st/saved-s1"
-out=$(KEEP_SAVE_MINUTES=30 stop s1 false);             ok "KEEP_SAVE_MINUTES moves the wait" '[ -z "$out" ]'
-hook bind '{"session_id":"s10","prompt":"/keep:start shop/tickets"}' >/dev/null; edit s10 Edit "$K/shop/tickets/STATE.md"
+out=$(TRACKSIDE_SAVE_MINUTES=30 stop s1 false);             ok "TRACKSIDE_SAVE_MINUTES moves the wait" '[ -z "$out" ]'
+hook bind '{"session_id":"s10","prompt":"/trackside:start shop/tickets"}' >/dev/null; edit s10 Edit "$K/shop/tickets/STATE.md"
 out=$(stop s1 false)
 ok "another chat saving the same track doesn't silence this one" '[ -n "$out" ]'; rm -f "$st/track-s10" "$st/saved-s10"
-ok "stop sends Stop hook feedback naming the state file" '[ "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" = Stop ] && [[ "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" == *".keep/shop/tickets/STATE.md"* ]] && [ "$(jq -r ".decision // empty" <<<"$out")" = "" ]'
+ok "stop sends Stop hook feedback naming the state file" '[ "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" = Stop ] && [[ "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" == *".trackside/shop/tickets/STATE.md"* ]] && [ "$(jq -r ".decision // empty" <<<"$out")" = "" ]'
 ok "and asks for Current, Next step and new decisions, nothing more" '[[ "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" == *"Update its Current and Next step"* && "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" == *"Record any decision made since"* && "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" != *"Done log"* ]]'
-out=$(KEEP_SAVE_MINUTES=soon stop s1 false);           ok "a bad KEEP_SAVE_MINUTES falls back to 15" '[ -n "$out" ]'
+out=$(TRACKSIDE_SAVE_MINUTES=soon stop s1 false);           ok "a bad TRACKSIDE_SAVE_MINUTES falls back to 15" '[ -n "$out" ]'
 out=$(stop s1 true);                                   ok "stop_hook_active lets it stop" '[ -z "$out" ]'
 edit s1 Edit "$K/shop/tickets/STATE.md";               ok "updating the track's state clears it" '[ ! -f "$st/dirty-s1" ]'
 out=$(stop s1 false);                                  ok "stop passes after the update" '[ -z "$out" ]'
@@ -209,8 +209,8 @@ for t in WebFetch WebSearch; do
 done
 hook track '{"session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"Explore"}}'
 ok "another subagent marks the chat dirty" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
-hook track '{"session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"keep:doc-expert"}}'
-ok "asking keep's doc-expert doesn't" '[ ! -f "$st/dirty-s1" ]'
+hook track '{"session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"trackside:doc-expert"}}'
+ok "asking trackside's doc-expert doesn't" '[ ! -f "$st/dirty-s1" ]'
 hook track '{"session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"doc-expert"}}'
 ok "nor does the unprefixed name" '[ ! -f "$st/dirty-s1" ]'
 hook track '{"session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"my-team:doc-expert"}}'
@@ -243,15 +243,15 @@ ok "an unchanged repo still says so" '[[ "$out" == *"web (main): no changes"* ]]
 echo "--- asking for the save before the reply"
 printf 'shop/tickets\n' > "$st/track-v1"
 out=$(edit_out v1 Edit "$R/api/cart.js")
-ok "the first edit in a chat that hasn't saved asks for the save before the reply, quietly" '[[ "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" == "Before you write your reply to the user, update .keep/shop/tickets/STATE.md"*"without mentioning it in your reply." ]]'
+ok "the first edit in a chat that hasn't saved asks for the save before the reply, quietly" '[[ "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" == "Before you write your reply to the user, update .trackside/shop/tickets/STATE.md"*"without mentioning it in your reply." ]]'
 out=$(edit_out v1 Edit "$R/web/index.html")
 ok "only once until the next save" '[ -z "$out" ]'
 edit v1 Edit "$K/shop/tickets/STATE.md"
 out=$(edit_out v1 Edit "$R/api/cart.js")
 ok "after a save, not again until a save is due" '[ -z "$out" ] && [ -f "$st/dirty-v1" ]'
-out=$(KEEP_SAVE_MINUTES=0 hook track '{"session_id":"v1","tool_name":"WebFetch","tool_input":{}}')
+out=$(TRACKSIDE_SAVE_MINUTES=0 hook track '{"session_id":"v1","tool_name":"WebFetch","tool_input":{}}')
 ok "once a save is due it asks again, after research too" '[[ "$out" == *"Before you write your reply to the user"* ]]'
-out=$(KEEP_SAVE_MINUTES=0 hook stop '{"session_id":"v1","stop_hook_active":false}')
+out=$(TRACKSIDE_SAVE_MINUTES=0 hook stop '{"session_id":"v1","stop_hook_active":false}')
 ok "the Stop hook catches a chat that didn't save, and asks for a quiet save that keeps the user's question last" '[[ "$out" == *"your reply is already written"* && "$out" == *"without writing anything about it to the user"* && "$out" == *"with that question again in one line, so it stays the last thing they see"* ]]'
 out=$(hook load '{"session_id":"s1","source":"resume"}')
 ok "a bound chat is told to keep the bookkeeping out of its replies" '[[ "$out" == *"update STATE.md before you write a reply, not after it, and don'"'"'t tell the user about saves"* ]]'
@@ -259,9 +259,9 @@ rm -f "$st"/*-v1
 
 echo "--- compaction and /clear"
 out=$(hook load '{"session_id":"s1","source":"compact"}')
-ok "the first compaction is counted" '[[ "$out" == *"compacted 1 time"* && "$out" == *"Read on start"* && "$out" != *"/keep:save"* ]]'
+ok "the first compaction is counted" '[[ "$out" == *"compacted 1 time"* && "$out" == *"Read on start"* && "$out" != *"/trackside:save"* ]]'
 out=$(hook load '{"session_id":"s1","source":"compact"}')
-ok "the second asks for /keep:save and a fresh chat" '[[ "$out" == *"compacted 2 time"* && "$out" == *"/keep:save"* && "$out" == *"start a new chat with /keep:start shop/tickets"* ]]'
+ok "the second asks for /trackside:save and a fresh chat" '[[ "$out" == *"compacted 2 time"* && "$out" == *"/trackside:save"* && "$out" == *"start a new chat with /trackside:start shop/tickets"* ]]'
 echo bogus > "$st/compactions-s1"
 out=$(hook load '{"session_id":"s1","source":"compact"}')
 ok "a corrupt counter restarts at 1" '[[ "$out" == *"compacted 1 time"* ]]'
@@ -271,7 +271,7 @@ out=$(hook load '{"session_id":"s5","source":"clear","session_title":"shop/resea
 ok "a new session id rebinds from the chat title" '[ "$(cat "$st/track-s5" 2>/dev/null)" = shop/research ] && [[ "$out" == *"Active track: shop/research"* ]]'
 for t in "Fix the bug" "../shop/tickets" "shop/tickets/x" ".state/x"; do
   out=$(hook load "{\"session_id\":\"s6\",\"source\":\"resume\",\"session_title\":\"$t\"}")
-  ok "no rebinding from the title: $t" '[ ! -f "$st/track-s6" ] && [[ "$out" == *"No keep track is bound"* ]]'
+  ok "no rebinding from the title: $t" '[ ! -f "$st/track-s6" ] && [[ "$out" == *"No track is bound"* ]]'
 done
 
 echo "--- size limits"
@@ -296,7 +296,7 @@ printf '# Track: shop/tickets\n**Goal:** ship tickets\n' > "$K/shop/tickets/CONT
 echo "--- index, idle tracks and housekeeping"
 ago() { date -v-"$1"d +%Y%m%d%H%M 2>/dev/null || date -d "$1 days ago" +%Y%m%d%H%M; }
 ok "the index is generated at chat start" '[ -f "$K/INDEX.md" ] && grep -q "| shop/research | Ticket: pricing question |" "$K/INDEX.md"'
-ok "the index gives each track's full start command" 'grep -q "\`/keep:start shop/research\`" "$K/INDEX.md" && grep -q "\`/keep:start solo/main\`" "$K/INDEX.md" && grep -q "\`/keep:start shop/tickets\`" "$K/INDEX.md"'
+ok "the index gives each track's full start command" 'grep -q "\`/trackside:start shop/research\`" "$K/INDEX.md" && grep -q "\`/trackside:start solo/main\`" "$K/INDEX.md" && grep -q "\`/trackside:start shop/tickets\`" "$K/INDEX.md"'
 bash "$H/scripts/index.sh" "$R"; bash "$H/scripts/index.sh" "$R"
 ok "git ignores the index, listed once" '[ "$(grep -cx INDEX.md "$K/.gitignore")" = 1 ]'
 touch -t 202001010000 "$K/INDEX.md"
@@ -307,11 +307,11 @@ edit s1 Edit "$K/shop/tickets/STATE.md"
 ok "saving a changed state refreshes the index" 'grep -q "line number one that" "$K/INDEX.md"'
 touch -t "$(ago 20)" "$K/solo/main/STATE.md"
 out=$(bash "$H/scripts/status.sh" "$R")
-ok "a track untouched for 14+ days is flagged in the listing" '[[ "$out" == *"solo/main: Ticket: none (start: /keep:start solo/main) (idle 20 days; close it with /keep:close solo/main)"* ]]'
+ok "a track untouched for 14+ days is flagged in the listing" '[[ "$out" == *"solo/main: Ticket: none (start: /trackside:start solo/main) (idle 20 days; close it with /trackside:close solo/main)"* ]]'
 bash "$H/scripts/index.sh" "$R"
-ok "and in the index" 'grep -q "idle 20 days: \`/keep:close solo/main\`?" "$K/INDEX.md"'
-out=$(KEEP_IDLE_DAYS=30 bash "$H/scripts/status.sh" "$R")
-ok "KEEP_IDLE_DAYS moves the threshold" '[[ "$out" != *idle* ]]'
+ok "and in the index" 'grep -q "idle 20 days: \`/trackside:close solo/main\`?" "$K/INDEX.md"'
+out=$(TRACKSIDE_IDLE_DAYS=30 bash "$H/scripts/status.sh" "$R")
+ok "TRACKSIDE_IDLE_DAYS moves the threshold" '[[ "$out" != *idle* ]]'
 printf '# Track: solo/main\n\n**Goal:** keep the lights on\n' > "$K/solo/main/CONTEXT.md"
 out=$(bash "$H/scripts/status.sh" "$R")
 ok "a track with nothing in flight shows its goal" '[[ "$out" == *"solo/main: Goal: keep the lights on (start:"* ]]'
@@ -329,7 +329,7 @@ ok "the current chat keeps its binding even if its file was old" '[ "$(cat "$st/
 echo "--- closing"
 printf 'x\n' > "$st/stamp-shop@research.docs"
 out=$(bash "$H/scripts/archive.sh" "$R" shop/research)
-ok "closing a track moves it into the archive" '[ -f "$K/_archive/shop/research/STATE.md" ] && [ ! -e "$K/shop/research" ] && [[ "$out" == *"Moved .keep/shop/research to .keep/_archive/shop/research"* ]]'
+ok "closing a track moves it into the archive" '[ -f "$K/_archive/shop/research/STATE.md" ] && [ ! -e "$K/shop/research" ] && [[ "$out" == *"Moved .trackside/shop/research to .trackside/_archive/shop/research"* ]]'
 ok "both chats bound to it are unbound, others keep theirs" '[ ! -f "$st/track-s2" ] && [ ! -f "$st/track-s5" ] && [ -f "$st/track-s1" ] && [[ "$out" == *"Chats unbound: 2"* ]]'
 ok "closing forgets the names remembered for it" '[ ! -f "$(nf "My review")" ]'
 ok "closing removes its source-doc stamp" '[ ! -e "$st/stamp-shop@research.docs" ]'
@@ -348,7 +348,7 @@ for t in "../shop" "shop/nope" "_archive" "nothing"; do
   out=$(bash "$H/scripts/archive.sh" "$R" "$t" 2>&1; echo "exit=$?")
   ok "closing is refused for: $t" '[[ "$out" == *"exit=1"* ]]'
 done
-out=$(hook bind '{"session_id":"s7","prompt":"/keep:start _archive/shop"}')
+out=$(hook bind '{"session_id":"s7","prompt":"/trackside:start _archive/shop"}')
 ok "an archived track can't be bound" '[ -z "$out" ] && [ ! -f "$st/track-s7" ]'
 edit s1 Edit "$K/_archive/shop/research/STATE.md"
 ok "editing the archive doesn't mark the chat dirty" '[ ! -f "$st/dirty-s1" ]'
@@ -361,21 +361,21 @@ done
 
 echo "--- helper scripts"
 out=$(bash "$H/scripts/status.sh" "$R")
-ok "status lists the tracks still open" '[ "$out" = "- shop/tickets: [assumed] a very long current line number one that keeps going — with · marks (start: /keep:start shop/tickets)" ]'
-O=$(mktemp -d "${TMPDIR:-/tmp}/keep-none.XXXXXX")
+ok "status lists the tracks still open" '[ "$out" = "- shop/tickets: [assumed] a very long current line number one that keeps going — with · marks (start: /trackside:start shop/tickets)" ]'
+O=$(mktemp -d "${TMPDIR:-/tmp}/trackside-none.XXXXXX")
 out=$(cd "$O" && bash "$H/scripts/status.sh" "$R/api"); rm -rf "$O"
-ok "status says when a folder has no keep folder" '[[ "$out" == *"No keep folder at $R/api/.keep"* ]]'
+ok "status says when a folder has no trackside folder" '[[ "$out" == *"No trackside folder at $R/api/.trackside"* ]]'
 out=$(bash "$H/scripts/freshness.sh" "$R" shop/research)
 ok "freshness says when there's no stamp" '[[ "$out" == *"No git stamp yet"* ]]'
 
 echo "--- chats side by side"
 errs=$( { for i in 1 2 3 4 5 6 7 8; do bash "$H/scripts/index.sh" "$R" & done; wait; } 2>&1 )
 ok "parallel index runs don't collide or leave temp files" '[ -z "$errs" ] && [ -z "$(ls "$K"/INDEX.md.* "$st"/INDEX.* 2>/dev/null)" ] && grep -q "shop/tickets" "$K/INDEX.md"'
-F=$(mktemp -d "${TMPDIR:-/tmp}/keep-fresh.XXXXXX"); mkdir -p "$F/.keep"
+F=$(mktemp -d "${TMPDIR:-/tmp}/trackside-fresh.XXXXXX"); mkdir -p "$F/.trackside"
 bash "$H/scripts/index.sh" "$F"
-ok "the index's temp files go to a git-ignored .state/, even on a fresh keep folder" '[ "$(cat "$F/.keep/.state/.gitignore")" = "*" ] && grep -q "mktemp \"\$keep/.state/" "$H/scripts/index.sh"'
+ok "the index's temp files go to a git-ignored .state/, even on a fresh trackside folder" '[ "$(cat "$F/.trackside/.state/.gitignore")" = "*" ] && grep -q "mktemp \"\$keep/.state/" "$H/scripts/index.sh"'
 rm -rf "$F"
-T=$(mktemp -d "${TMPDIR:-/tmp}/keep-big.XXXXXX"); q "$T" init -b main; q "$T" -c user.name=t -c user.email=t@example.com commit --allow-empty -m s
+T=$(mktemp -d "${TMPDIR:-/tmp}/trackside-big.XXXXXX"); q "$T" init -b main; q "$T" -c user.name=t -c user.email=t@example.com commit --allow-empty -m s
 dd if=/dev/zero of="$T/big.bin" bs=1048576 count=300 2>/dev/null
 t0=$(date +%s); changes_out=$(. "$H/scripts/common.sh"; changes_fingerprint "$T"); t1=$(date +%s)
 ok "a 300 MB untracked file doesn't slow the fingerprint ($((t1 - t0))s)" '[ $((t1 - t0)) -le 1 ] && [ -n "$changes_out" ]'
@@ -385,16 +385,16 @@ bash "$H/scripts/index.sh" "$R"
 ok "appending to a .gitignore without a final newline keeps lines apart" '[ "$(cat "$K/.gitignore")" = "$(printf "scratch\nINDEX.md")" ]'
 
 echo "--- worktree sessions"
-W=$(mktemp -d "${TMPDIR:-/tmp}/keep-wt.XXXXXX")
+W=$(mktemp -d "${TMPDIR:-/tmp}/trackside-wt.XXXXXX")
 q "$W" init -b main; q "$W" -c user.name=t -c user.email=t@example.com commit --allow-empty -m "start"
 q "$W" worktree add -b worktree-w1 "$W/.claude/worktrees/w1"
-mkdir -p "$W/.keep/app/main"
-printf '# Feature: app\n' > "$W/.keep/app/FEATURE.md"
-state app/main "none" "none" > "$W/.keep/app/main/STATE.md"
+mkdir -p "$W/.trackside/app/main"
+printf '# Feature: app\n' > "$W/.trackside/app/FEATURE.md"
+state app/main "none" "none" > "$W/.trackside/app/main/STATE.md"
 wt() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$W" "$H/hooks/$1.sh"; }
-wt bind '{"session_id":"w","prompt":"/keep:start app/main"}' >/dev/null
-wt track "{\"session_id\":\"w\",\"cwd\":\"$W/.claude/worktrees/w1/src\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$W/.keep/app/main/STATE.md\"}}"
-ok "in a worktree session the project repo is stamped in the worktree" '[ "$(cut -f2 "$W/.keep/.state/stamp-app@main")" = "$(git -C "$W/.claude/worktrees/w1" rev-parse HEAD)" ] && [ "$(cut -f3 "$W/.keep/.state/stamp-app@main")" = worktree-w1 ]'
+wt bind '{"session_id":"w","prompt":"/trackside:start app/main"}' >/dev/null
+wt track "{\"session_id\":\"w\",\"cwd\":\"$W/.claude/worktrees/w1/src\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$W/.trackside/app/main/STATE.md\"}}"
+ok "in a worktree session the project repo is stamped in the worktree" '[ "$(cut -f2 "$W/.trackside/.state/stamp-app@main")" = "$(git -C "$W/.claude/worktrees/w1" rev-parse HEAD)" ] && [ "$(cut -f3 "$W/.trackside/.state/stamp-app@main")" = worktree-w1 ]'
 q "$W/.claude/worktrees/w1" -c user.name=t -c user.email=t@example.com commit --allow-empty -m "worktree work"
 out=$(wt load "{\"session_id\":\"w\",\"source\":\"resume\",\"cwd\":\"$W/.claude/worktrees/w1\"}")
 ok "and checked there at the next start" '[[ "$out" == *". in worktree w1 (worktree-w1): 1 new commit(s)"* && "$out" == *"worktree work"* ]]'
@@ -402,49 +402,49 @@ ok "the agent is told the chat can read the track but not save it" '[[ "$out" ==
 out=$(wt load '{"session_id":"w","source":"resume"}')
 ok "a main-checkout chat isn't told that" '[[ "$out" != *"can read the track"* ]]'
 wt track "{\"session_id\":\"w\",\"cwd\":\"$W/.claude/worktrees/w1\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$W/.claude/worktrees/w1/app.js\"}}"
-touch -t "$(mins_ago 20)" "$W/.keep/.state/saved-w"
+touch -t "$(mins_ago 20)" "$W/.trackside/.state/saved-w"
 out=$(wt stop "{\"session_id\":\"w\",\"stop_hook_active\":false,\"cwd\":\"$W/.claude/worktrees/w1\"}")
-ok "a worktree session isn't asked to save what it can't" '[ -f "$W/.keep/.state/dirty-w" ] && [ -z "$out" ]'
+ok "a worktree session isn't asked to save what it can't" '[ -f "$W/.trackside/.state/dirty-w" ] && [ -z "$out" ]'
 out=$(wt stop '{"session_id":"w","stop_hook_active":false}')
 ok "the same chat state in the main checkout is asked" '[ -n "$out" ]'
 rm -rf "$W"
 
-echo "--- a keep folder inside the project's repo"
-G=$(mktemp -d "${TMPDIR:-/tmp}/keep-one.XXXXXX")
+echo "--- a trackside folder inside the project's repo"
+G=$(mktemp -d "${TMPDIR:-/tmp}/trackside-one.XXXXXX")
 q "$G" init -b main; q "$G" -c user.name=t -c user.email=t@example.com commit --allow-empty -m "start"
-mkdir -p "$G/.keep/app/main"
-printf '# Feature: app\n\n**Repos:** .\n' > "$G/.keep/app/FEATURE.md"
-state app/main "none" "none" > "$G/.keep/app/main/STATE.md"
+mkdir -p "$G/.trackside/app/main"
+printf '# Feature: app\n\n**Repos:** .\n' > "$G/.trackside/app/FEATURE.md"
+state app/main "none" "none" > "$G/.trackside/app/main/STATE.md"
 g() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$G" "$H/hooks/$1.sh"; }
-g bind '{"session_id":"g","prompt":"/keep:start app/main"}' >/dev/null
-g track "{\"session_id\":\"g\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$G/.keep/app/main/STATE.md\"}}"
-ok "the stamp doesn't count keep's own files as changes" '[ "$(cut -f4 "$G/.keep/.state/stamp-app@main")" = 0 ]'
+g bind '{"session_id":"g","prompt":"/trackside:start app/main"}' >/dev/null
+g track "{\"session_id\":\"g\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$G/.trackside/app/main/STATE.md\"}}"
+ok "the stamp doesn't count trackside's own files as changes" '[ "$(cut -f4 "$G/.trackside/.state/stamp-app@main")" = 0 ]'
 later=$(date -v+2M +%Y%m%d%H%M 2>/dev/null || date -d '2 minutes' +%Y%m%d%H%M)
-printf 'a later note\n' > "$G/.keep/app/main/NOTES.md"; touch -t "$later" "$G/.keep/app/main/NOTES.md"
+printf 'a later note\n' > "$G/.trackside/app/main/NOTES.md"; touch -t "$later" "$G/.trackside/app/main/NOTES.md"
 out=$(bash "$H/scripts/freshness.sh" "$G" app/main)
-ok "nor does freshness, after a keep file changes" '[[ "$out" == *"- . (main): no changes"* ]]'
+ok "nor does freshness, after a trackside file changes" '[[ "$out" == *"- . (main): no changes"* ]]'
 printf 'x\n' > "$G/real.txt"; touch -t "$later" "$G/real.txt"
 out=$(bash "$H/scripts/freshness.sh" "$G" app/main)
 ok "a real untracked file still counts" '[[ "$out" == *"uncommitted changes differ: 1 file(s) now, 0 then"* ]]'
 rm -f "$G/real.txt"
 gitenv() { GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.com GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.com "$@"; }
 out=$(gitenv bash "$H/scripts/setup-git.sh" "$G" 2>&1; echo "exit=$?")
-ok "setup-git needs a choice" '[[ "$out" == *"exit=1"* ]] && [ ! -e "$G/.keep/.git" ]'
+ok "setup-git needs a choice" '[[ "$out" == *"exit=1"* ]] && [ ! -e "$G/.trackside/.git" ]'
 out=$(gitenv bash "$H/scripts/setup-git.sh" "$G" ignore history)
-ok "setup-git keeps .keep/ out of the project's git" '[ -z "$(git -C "$G" status --porcelain)" ] && grep -qx "/.keep/" "$G/.git/info/exclude"'
-ok "and gives it its own history" '[ "$(git -C "$G/.keep" rev-list --count HEAD 2>/dev/null)" = 1 ] && [ -z "$(git -C "$G/.keep" ls-files .state INDEX.md)" ]'
+ok "setup-git keeps .trackside/ out of the project's git" '[ -z "$(git -C "$G" status --porcelain)" ] && grep -qx "/.trackside/" "$G/.git/info/exclude"'
+ok "and gives it its own history" '[ "$(git -C "$G/.trackside" rev-list --count HEAD 2>/dev/null)" = 1 ] && [ -z "$(git -C "$G/.trackside" ls-files .state INDEX.md)" ]'
 out=$(gitenv bash "$H/scripts/setup-git.sh" "$G" ignore history)
-ok "running it again changes nothing" '[ -z "$out" ] && [ "$(grep -cx "/.keep/" "$G/.git/info/exclude")" = 1 ]'
-mkdir -p "$G/sub/.keep"
+ok "running it again changes nothing" '[ -z "$out" ] && [ "$(grep -cx "/.trackside/" "$G/.git/info/exclude")" = 1 ]'
+mkdir -p "$G/sub/.trackside"
 gitenv bash "$H/scripts/setup-git.sh" "$G/sub" ignore >/dev/null
-ok "a project in a repo's subfolder is excluded by its own path, and ignore alone adds no history" 'grep -qx "/sub/.keep/" "$G/.git/info/exclude" && [ -z "$(git -C "$G" status --porcelain)" ] && [ ! -e "$G/sub/.keep/.git" ]'
-N=$(mktemp -d "${TMPDIR:-/tmp}/keep-nogit.XXXXXX"); mkdir -p "$N/.keep"
+ok "a project in a repo's subfolder is excluded by its own path, and ignore alone adds no history" 'grep -qx "/sub/.trackside/" "$G/.git/info/exclude" && [ -z "$(git -C "$G" status --porcelain)" ] && [ ! -e "$G/sub/.trackside/.git" ]'
+N=$(mktemp -d "${TMPDIR:-/tmp}/trackside-nogit.XXXXXX"); mkdir -p "$N/.trackside"
 out=$(gitenv bash "$H/scripts/setup-git.sh" "$N" ignore history)
-ok "outside a git repo it says there's nothing to ignore and adds the history" '[ -d "$N/.keep/.git" ] && [[ "$out" == *"isn'"'"'t a git repo"* ]]'
+ok "outside a git repo it says there's nothing to ignore and adds the history" '[ -d "$N/.trackside/.git" ] && [[ "$out" == *"isn'"'"'t a git repo"* ]]'
 rm -rf "$G" "$N"
 
 echo "--- renaming"
-N=$(mktemp -d "${TMPDIR:-/tmp}/keep-rename.XXXXXX"); NK="$N/.keep"; NS="$NK/.state"
+N=$(mktemp -d "${TMPDIR:-/tmp}/trackside-rename.XXXXXX"); NK="$N/.trackside"; NS="$NK/.state"
 mkdir -p "$NK/shop/tickets" "$NK/shop/research" "$NS"
 printf '# Feature: shop\n' > "$NK/shop/FEATURE.md"
 printf '# Decisions: shop\n' > "$NK/shop/DECISIONS.md"
@@ -452,8 +452,8 @@ for t in tickets research; do
   state "shop/$t" none none > "$NK/shop/$t/STATE.md"
   printf '# Track: shop/%s\n\n**Goal:** %s work\n' "$t" "$t" > "$NK/shop/$t/CONTEXT.md"
 done
-printf -- '- 2026-10-22 · from shop/tickets · see .keep/shop/tickets/NOTES.md\n- shop/tickets,shop/tickets; shop/ticketsx and api/shop/tickets stay\n' >> "$NK/shop/research/STATE.md"
-printf 'shop is a plain word here; .keep/shop/FEATURE.md\n' >> "$NK/shop/FEATURE.md"
+printf -- '- 2026-10-22 · from shop/tickets · see .trackside/shop/tickets/NOTES.md\n- shop/tickets,shop/tickets; shop/ticketsx and api/shop/tickets stay\n' >> "$NK/shop/research/STATE.md"
+printf 'shop is a plain word here; .trackside/shop/FEATURE.md\n' >> "$NK/shop/FEATURE.md"
 mkdir -p "$NK/_archive/shop/old"; printf 'from shop/tickets\n' > "$NK/_archive/shop/old/STATE.md"
 printf 'shop/tickets\n' > "$NS/track-n1"; printf 'shop/tickets\n' > "$NS/track-n2"; printf 'shop/research\n' > "$NS/track-n3"
 printf 'x\n' > "$NS/stamp-shop@tickets"; printf 'x\n' > "$NS/stamp-shop@tickets.docs"; printf '1 2 x\n' > "$NS/deep-shop@tickets"
@@ -466,13 +466,13 @@ ok "a chat the user named stays bound, keeps its name, and its remembered track 
 ok "its stamps and deep-review record follow it" '[ -f "$NS/stamp-shop@build" ] && [ ! -e "$NS/stamp-shop@tickets" ] && [ -f "$NS/stamp-shop@build.docs" ] && [ ! -e "$NS/stamp-shop@tickets.docs" ] && [ -f "$NS/deep-shop@build" ] && [ ! -e "$NS/deep-shop@tickets" ]'
 ok "its stamp follows it" '[ -f "$NS/stamp-shop@build" ] && [ ! -e "$NS/stamp-shop@tickets" ]'
 ok "the index lists the new name" 'grep -q "| shop/build |" "$NK/INDEX.md" && ! grep -q "shop/tickets |" "$NK/INDEX.md"'
-ok "every reference to it in the keep folder is updated" 'grep -q "from shop/build · see .keep/shop/build/NOTES.md" "$NK/shop/research/STATE.md" && grep -q "^- shop/build,shop/build; shop/ticketsx and api/shop/tickets stay" "$NK/shop/research/STATE.md" && [[ "$out" == *"Files updated to the new name: 3"* ]]'
+ok "every reference to it in the trackside folder is updated" 'grep -q "from shop/build · see .trackside/shop/build/NOTES.md" "$NK/shop/research/STATE.md" && grep -q "^- shop/build,shop/build; shop/ticketsx and api/shop/tickets stay" "$NK/shop/research/STATE.md" && [[ "$out" == *"Files updated to the new name: 3"* ]]'
 ok "but not in the archive" 'grep -qx "from shop/tickets" "$NK/_archive/shop/old/STATE.md"'
 out=$(printf '{"session_id":"n1","prompt":"carry on"}' | CLAUDE_PROJECT_DIR="$N" "$H/hooks/bind.sh")
 ok "the bind hook renames that chat at its next message" '[ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = shop/build ] && [ ! -f "$NS/title-n1" ]'
 out=$(bash "$H/scripts/rename.sh" "$N" shop store)
 ok "renaming a feature moves it and every binding and stamp under it" '[ -f "$NK/store/build/STATE.md" ] && [ ! -e "$NK/shop" ] && [ "$(cat "$NS/track-n2")" = store/build ] && [ "$(cat "$NS/track-n3")" = store/research ] && [ -f "$NS/stamp-store@build" ] && [ -f "$NS/stamp-store@build.docs" ] && head -1 "$NK/store/FEATURE.md" | grep -qx "# Feature: store" && head -1 "$NK/store/DECISIONS.md" | grep -qx "# Decisions: store" && head -1 "$NK/store/research/STATE.md" | grep -qx "# State: store/research"'
-ok "and updates its tracks' full names and paths, not the feature's name as a word" 'grep -q "from store/build · see .keep/store/build/NOTES.md" "$NK/store/research/STATE.md" && grep -qx "shop is a plain word here; .keep/store/FEATURE.md" "$NK/store/FEATURE.md"'
+ok "and updates its tracks' full names and paths, not the feature's name as a word" 'grep -q "from store/build · see .trackside/store/build/NOTES.md" "$NK/store/research/STATE.md" && grep -qx "shop is a plain word here; .trackside/store/FEATURE.md" "$NK/store/FEATURE.md"'
 for a in "store/nope x" "store/build research" "store/build off" "store/build ../x" "nope x" "store research"; do
   mkdir -p "$NK/research"
   out=$(bash "$H/scripts/rename.sh" "$N" $a 2>&1; echo "exit=$?")
@@ -481,7 +481,7 @@ done
 rm -rf "$N"
 
 echo "--- the automatic check"
-A=$(mktemp -d "${TMPDIR:-/tmp}/keep-audit.XXXXXX"); AK="$A/.keep"; AS="$AK/.state"
+A=$(mktemp -d "${TMPDIR:-/tmp}/trackside-audit.XXXXXX"); AK="$A/.trackside"; AS="$AK/.state"
 mkdir -p "$AK/app/main" "$AS"
 printf '# Feature: app\n\n**Goal:** an app\n' > "$AK/app/FEATURE.md"
 printf '# Track: app/main\n\n**Goal:** build it\n' > "$AK/app/main/CONTEXT.md"
@@ -531,18 +531,18 @@ rm -f "$AS"/audit-app@main*
 printf 'app/main\n' > "$AS/track-a1"; printf 'app/small\n' > "$AS/track-a2"
 ae() { printf '{"session_id":"%s","tool_name":"Edit","tool_input":{"file_path":"%s"}}' "$1" "$AK/$2/STATE.md" | CLAUDE_PROJECT_DIR="$A" "$H/hooks/track.sh"; }
 out=$(ae a1 app/main)
-ok "saving STATE.md tells the agent what to fix, in the same turn" '[ "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" = PostToolUse ] && [[ "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" == *"keep'"'"'s check of app/main after this save:"*"Next step is empty"*"Fix the ones that only move or de-duplicate text"* ]]'
+ok "saving STATE.md tells the agent what to fix, in the same turn" '[ "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" = PostToolUse ] && [[ "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" == *"trackside'"'"'s check of app/main after this save:"*"Next step is empty"*"Fix the ones that only move or de-duplicate text"* ]]'
 out=$(ae a1 app/main);                                 ok "but only once" '[ -z "$out" ]'
 out=$(ae a2 app/small);                                ok "a clean track's save adds nothing" '[ -z "$out" ]'
 out=$(printf '{"session_id":"a1","source":"resume"}' | CLAUDE_PROJECT_DIR="$A" "$H/hooks/load.sh")
-ok "a chat start lists the open issues for the agent" '[[ "$out" == *"keep'"'"'s check of this track:"*"Next step is empty"* ]]'
+ok "a chat start lists the open issues for the agent" '[[ "$out" == *"trackside'"'"'s check of this track:"*"Next step is empty"* ]]'
 out=$(printf '{"session_id":"a2","source":"resume"}' | CLAUDE_PROJECT_DIR="$A" "$H/hooks/load.sh")
-ok "and says nothing for a clean track" '[[ "$out" != *"keep'"'"'s check"* ]]'
+ok "and says nothing for a clean track" '[[ "$out" != *"trackside'"'"'s check"* ]]'
 rm -f "$AS"/deep-app@main*
 err=$(printf '{"session_id":"a1","source":"resume"}' | CLAUDE_PROJECT_DIR="$A" "$H/hooks/load.sh" 2>&1 >/dev/null); rm -f "$AS"/deep-app@main.started
 ok "a chat start on a due track writes nothing to stderr" '[ -z "$err" ]'
 out=$(printf '{"session_id":"a1","source":"resume"}' | CLAUDE_PROJECT_DIR="$A" "$H/hooks/load.sh")
-ok "a chat start on a due track asks the agent to start the review" '[[ "$out" == *"periodic review of this track is due. Start the keep audit skill for app/main now"* ]]'
+ok "a chat start on a due track asks the agent to start the review" '[[ "$out" == *"periodic review of this track is due. Start the trackside audit skill for app/main now"* ]]'
 out=$(printf '{"session_id":"a1","source":"resume"}' | CLAUDE_PROJECT_DIR="$A" "$H/hooks/load.sh")
 ok "but not again while it runs" '[[ "$out" != *"periodic review"* ]]'
 printf '{"session_id":"a1","tool_name":"Write","tool_input":{"file_path":"%s"}}' "$AK/app/main/review-2026-10-23.md" | CLAUDE_PROJECT_DIR="$A" "$H/hooks/track.sh"
@@ -555,27 +555,27 @@ ms() { python3 -I -c 'import subprocess, sys, time; t = time.time(); subprocess.
 cold=$(ms bash "$H/scripts/audit.sh" "$A" app/big start); warm=$(ms bash "$H/scripts/audit.sh" "$A" app/big save)
 ok "a full check of a large track takes under 500 ms (${cold} ms)" '[ "$cold" -lt 500 ]'
 ok "an unchanged track is skipped in under 200 ms (${warm} ms)" '[ "$warm" -lt 200 ]'
-G2=$(mktemp -d "${TMPDIR:-/tmp}/keep-audit2.XXXXXX"); mkdir -p "$G2/.keep/app/main"
-printf '# State: app/main\n\n## Current\n- State as of today:\n  - [verified] the parser works\n\n## Next step\n- go\n' > "$G2/.keep/app/main/STATE.md"
+G2=$(mktemp -d "${TMPDIR:-/tmp}/trackside-audit2.XXXXXX"); mkdir -p "$G2/.trackside/app/main"
+printf '# State: app/main\n\n## Current\n- State as of today:\n  - [verified] the parser works\n\n## Next step\n- go\n' > "$G2/.trackside/app/main/STATE.md"
 out=$(bash "$H/scripts/audit.sh" "$G2" app/main start)
-ok "the check creates keep's runtime folder with its git-ignore rule" '[ "$(cat "$G2/.keep/.state/.gitignore")" = "*" ]'
+ok "the check creates trackside's runtime folder with its git-ignore rule" '[ "$(cat "$G2/.trackside/.state/.gitignore")" = "*" ]'
 ok "a heading-style Current bullet ending in a colon isn't counted as unmarked" '[ -z "$out" ]'
-D=$(mktemp -d "${TMPDIR:-/tmp}/keep-date.XXXXXX")
+D=$(mktemp -d "${TMPDIR:-/tmp}/trackside-date.XXXXXX")
 printf '#!/bin/sh\n[ "$1" = "+%%Y-%%m-%%d" ] && { echo 2099-01-01; exit 0; }\nexec /bin/date "$@"\n' > "$D/date"; chmod +x "$D/date"
-before=$(head -1 "$G2/.keep/.state/audit-app@main"); PATH="$D:$PATH" bash "$H/scripts/audit.sh" "$G2" app/main start >/dev/null; after=$(head -1 "$G2/.keep/.state/audit-app@main")
+before=$(head -1 "$G2/.trackside/.state/audit-app@main"); PATH="$D:$PATH" bash "$H/scripts/audit.sh" "$G2" app/main start >/dev/null; after=$(head -1 "$G2/.trackside/.state/audit-app@main")
 ok "a new day rescans an unchanged track, since the Inbox check depends on the date" '[ "$before" != "$after" ]'
 rm -rf "$G2" "$D"
-ok "skills that run keep's scripts say to run them exactly as written" '[ -z "$(grep -L "Run each command below exactly as written" "$H"/skills/{start,save,done,close,list,current,rename}/SKILL.md)" ]'
+ok "skills that run trackside's scripts say to run them exactly as written" '[ -z "$(grep -L "Run each command below exactly as written" "$H"/skills/{start,save,done,close,list,current,rename}/SKILL.md)" ]'
 ok "the start skill runs the check right after binding" 'grep -q "audit.sh\" \"\${CLAUDE_PROJECT_DIR}\" \"<feature>/<track>\" start" "$H/skills/start/SKILL.md"'
 rm -rf "$A"
-ok "the deep review runs in a separate, read-only context on Sonnet" 'grep -qx "context: fork" "$H/skills/audit/SKILL.md" && grep -qx "agent: keep:auditor" "$H/skills/audit/SKILL.md" && grep -qx "model: sonnet" "$H/agents/auditor.md" && grep -qx "tools: Read, Grep, Glob" "$H/agents/auditor.md"'
+ok "the deep review runs in a separate, read-only context on Sonnet" 'grep -qx "context: fork" "$H/skills/audit/SKILL.md" && grep -qx "agent: trackside:auditor" "$H/skills/audit/SKILL.md" && grep -qx "model: sonnet" "$H/agents/auditor.md" && grep -qx "tools: Read, Grep, Glob" "$H/agents/auditor.md"'
 ok "a chat start or a fresh binding starts the review when it's due" 'grep -q "periodic review of this track is due" "$H/hooks/load.sh" && grep -q "audit.sh\" \"\${CLAUDE_PROJECT_DIR}\" \"<feature>/<track>\" due" "$H/skills/start/SKILL.md"'
 ok "save and done no longer start it" '[ -z "$(grep -l "audit.sh.*due" "$H"/skills/{save,done}/SKILL.md)" ]'
 ok "the handled result goes to a review file, with an Inbox pointer when it has items" '[ "$(grep -l "Nothing needs the user" "$H/hooks/load.sh" "$H/skills/start/SKILL.md" "$H/skills/audit/SKILL.md" | wc -l | tr -d " ")" = 3 ]'
 ok "the start-of-chat text has no backticks, which bash would run as commands" '! grep -q "add \".*\`" "$H/hooks/load.sh"'
 
 echo "--- source docs"
-D=$(mktemp -d "${TMPDIR:-/tmp}/keep-docs.XXXXXX"); DK="$D/.keep"; DS="$DK/.state"; DD="$DS/stamp-pay@main.docs"
+D=$(mktemp -d "${TMPDIR:-/tmp}/trackside-docs.XXXXXX"); DK="$D/.trackside"; DS="$DK/.state"; DD="$DS/stamp-pay@main.docs"
 mkdir -p "$D/docs" "$DK/pay/main" "$DS"
 rfc() { printf '# Pay RFC\nIntro.\n## Decisions\n| ID | Date | Decision |\n| --- | --- | --- |\n%s\n## KYC form\n%s\n```sh\n# not a heading\n```\n## Notes\nfirst\n%s' "$1" "$2" "$3" > "$D/docs/rfc.md"; }
 rfc '| AD-1 | 2026-10-01 | One account per member |
@@ -592,7 +592,7 @@ dsave() { dh track "{\"session_id\":\"d1\",\"tool_name\":\"Edit\",\"tool_input\"
 has() { awk -F'\t' -v d="$2" -v k="$3" -v n="$4" '$1 == d && $2 == k && $3 == n { f = 1 } END { exit !f }' "$1"; }
 dsave
 ok "a save records each source doc's sections and the IDs it defines" 'has "$DD" docs/rfc.md s "KYC form" && has "$DD" docs/rfc.md a AD-2 && has "$DD" docs/rfc.md s "Notes (2)" && ! grep -q "not a heading" "$DD"'
-ok "the feature's DECISIONS.md counts as a source doc, and a listed doc that doesn't exist is skipped" 'has "$DD" .keep/pay/DECISIONS.md a D-001 && ! grep -q missing.md "$DD"'
+ok "the feature's DECISIONS.md counts as a source doc, and a listed doc that doesn't exist is skipped" 'has "$DD" .trackside/pay/DECISIONS.md a D-001 && ! grep -q missing.md "$DD"'
 out=$(bash "$H/scripts/freshness.sh" "$D" pay/main)
 ok "unchanged docs are reported in one line" '[[ "$out" == *"Source docs: no changes since STATE.md was last written."* && "$out" == *"No git stamp yet"* ]]'
 before=$(cat "$DD"); dsave
@@ -626,7 +626,7 @@ ok "and once it's indexed, a save takes under 1 s (${warm} ms)" '[ "$warm" -lt 1
 rm -rf "$D"
 
 echo "--- tracks whose items start clean"
-C=$(mktemp -d "${TMPDIR:-/tmp}/keep-clean.XXXXXX"); CK="$C/.keep"
+C=$(mktemp -d "${TMPDIR:-/tmp}/trackside-clean.XXXXXX"); CK="$C/.trackside"
 mkdir -p "$CK/rev/prs" "$CK/rev/build" "$CK/.state"
 printf '# Feature: rev\n' > "$CK/rev/FEATURE.md"
 printf '# Track: rev/prs\n\n**Goal:** review pull requests\n\n**Each item starts clean:** yes\n' > "$CK/rev/prs/CONTEXT.md"
@@ -638,11 +638,11 @@ bash "$H/scripts/index.sh" "$C"
 ok "so does the index" 'grep -q "^| rev/prs (each item starts clean) |" "$CK/INDEX.md" && grep -q "^| rev/build |" "$CK/INDEX.md"'
 printf 'rev/prs\n' > "$CK/.state/track-c1"; printf 'rev/build\n' > "$CK/.state/track-c2"
 out=$(bash "$H/scripts/current.sh" "$C" c1)
-ok "/keep:current says each item starts clean" '[[ "$out" == *"Each item starts clean: only CONTEXT.md and LESSONS.md carry over from one item to the next."* ]]'
+ok "/trackside:current says each item starts clean" '[[ "$out" == *"Each item starts clean: only CONTEXT.md and LESSONS.md carry over from one item to the next."* ]]'
 out=$(bash "$H/scripts/current.sh" "$C" c2)
 ok "and says when items build on the track's history" '[[ "$out" == *"Items build on the track'"'"'s history"* ]]'
 out=$(bash "$H/scripts/audit.sh" "$C" rev/prs start)
-ok "the check flags a clean track without LESSONS.md" '[[ "$out" == *"it has no LESSONS.md: create it from keep'"'"'s templates/LESSONS.md"* ]]'
+ok "the check flags a clean track without LESSONS.md" '[[ "$out" == *"it has no LESSONS.md: create it from trackside'"'"'s templates/LESSONS.md"* ]]'
 out=$(bash "$H/scripts/audit.sh" "$C" rev/build start)
 ok "but not a track whose items build on each other" '[[ "$out" != *LESSONS.md* ]]'
 today=$(date +%Y-%m-%d); long_ago=$(date -v-120d +%Y-%m-%d 2>/dev/null || date -d "120 days ago" +%Y-%m-%d)
@@ -656,7 +656,7 @@ out=$(bash "$H/scripts/audit.sh" "$C" rev/prs start)
 ok "and a LESSONS.md over 4,000 bytes" '[[ "$out" == *"LESSONS.md is "*" bytes, over 4,000"* ]]'
 sed "s/<feature>\/<track>/rev\/prs/" "$H/templates/LESSONS.md" > "$CK/rev/prs/LESSONS.md"
 out=$(printf '{"session_id":"c1","source":"resume"}' | CLAUDE_PROJECT_DIR="$C" "$H/hooks/load.sh")
-ok "the reload says each item starts clean and loads LESSONS.md" '[[ "$out" == *"Each item on this track starts clean: only CONTEXT.md and LESSONS.md carry over"* && "$out" == *"=== LESSONS.md (.keep/rev/prs/LESSONS.md) ==="* ]]'
+ok "the reload says each item starts clean and loads LESSONS.md" '[[ "$out" == *"Each item on this track starts clean: only CONTEXT.md and LESSONS.md carry over"* && "$out" == *"=== LESSONS.md (.trackside/rev/prs/LESSONS.md) ==="* ]]'
 out=$(printf '{"session_id":"c2","source":"resume"}' | CLAUDE_PROJECT_DIR="$C" "$H/hooks/load.sh")
 ok "a track whose items build on each other loads no LESSONS.md" '[[ "$out" != *LESSONS.md* && "$out" != *"starts clean"* ]]'
 ok "the template's CONTEXT.md offers the line, as a placeholder the check catches" 'grep -q "^\*\*Each item starts clean:\*\* <yes when" "$H/templates/CONTEXT.md" && ! (grep "^\*\*Each item starts clean" "$H/templates/CONTEXT.md" | grep -qi "clean:\*\* *yes")'
@@ -669,7 +669,7 @@ ok "renaming a clean track keeps its kind and renames its LESSONS.md header" '[ 
 rm -rf "$C"
 
 echo "--- skill commands"
-ok "nothing refers to a custom keep folder anymore" '! grep -rq KEEP_FOLDER "$H"'
+ok "nothing refers to a custom trackside folder anymore" '! grep -rq TRACKSIDE_FOLDER "$H"'
 ok "skills run commands from the project root, not the working directory" '[ -z "$(grep -n "PWD" "$H"/skills/*/SKILL.md | grep -v "freshness.sh")" ]'
 missing=""
 for f in "$H"/skills/*/SKILL.md; do
@@ -677,21 +677,21 @@ for f in "$H"/skills/*/SKILL.md; do
   for s in $(grep -o "scripts/[a-z-]*\.sh" "$f" | sort -u); do
     [[ "$allow" == *"Bash(bash \"\${CLAUDE_SKILL_DIR}/../../$s\" *)"* ]] || missing="$missing ${f#$H/}:$s"
   done
-  if grep -q 'git -C "${CLAUDE_PROJECT_DIR}/.keep" commit' "$f"; then
-    [[ "$allow" == *'Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" commit *)'* ]] || missing="$missing ${f#$H/}:commit"
+  if grep -q 'git -C "${CLAUDE_PROJECT_DIR}/.trackside" commit' "$f"; then
+    [[ "$allow" == *'Bash(git -C "${CLAUDE_PROJECT_DIR}/.trackside" commit *)'* ]] || missing="$missing ${f#$H/}:commit"
   fi
 done
-ok "every skill pre-approves the keep scripts and .keep commits it runs${missing:+ (missing:$missing)}" '[ -z "$missing" ]'
+ok "every skill pre-approves the trackside scripts and .trackside commits it runs${missing:+ (missing:$missing)}" '[ -z "$missing" ]'
 ok "done marks the ticket done only after the commit is approved, and stops on a failed check" 'grep -q "Until then, the ticket stays open" "$H/skills/done/SKILL.md" && grep -q "If any of them fails, report it and stop" "$H/skills/done/SKILL.md"'
 ok "next checks only the repos the ticket touches" 'grep -q "in each repo the ticket touches" "$H/skills/next/SKILL.md"'
 ok "save lists what it recorded" 'grep -q "one line for each decision, Inbox line or rule you wrote" "$H/skills/save/SKILL.md"'
-ok "the git offer comes only when .keep/ is created" 'grep -q "If \`\${CLAUDE_PROJECT_DIR}/.keep/\` doesn'"'"'t exist yet, also offer two separate choices" "$H/skills/start/SKILL.md"'
+ok "the git offer comes only when .trackside/ is created" 'grep -q "If \`\${CLAUDE_PROJECT_DIR}/.trackside/\` doesn'"'"'t exist yet, also offer two separate choices" "$H/skills/start/SKILL.md"'
 ok "new tracks don't load NOTES.md at every start" '! grep -q "^\*\*Read on start:\*\*" "$H/templates/CONTEXT.md"'
 ok "next, done and save read the chat's binding before acting" '[ "$(grep -l "track-\${CLAUDE_SESSION_ID}" "$H"/skills/{next,done,save}/SKILL.md | wc -l | tr -d " ")" = 3 ]'
-ok "next and done say they only apply in a chat bound to a track" '[ "$(grep -l "^description: In a chat bound to a keep track" "$H"/skills/{next,done}/SKILL.md | wc -l | tr -d " ")" = 2 ]'
+ok "next and done say they only apply in a chat bound to a track" '[ "$(grep -l "^description: In a chat bound to a track" "$H"/skills/{next,done}/SKILL.md | wc -l | tr -d " ")" = 2 ]'
 ok "a ticket asked for right after binding still waits for approval" 'grep -q "write no code until the user approves" "$H/skills/start/SKILL.md"'
 ok "closing asks about open items once" 'grep -q "Propose, in one list" "$H/skills/close/SKILL.md" && ! grep -q "For each open item, ask" "$H/skills/close/SKILL.md"'
-ok "every skill command that touches .keep goes through the project root" '[ -z "$(grep -nE "\`(bash|git|grep)[^\`]*\.keep" "$H"/skills/*/SKILL.md | grep -v CLAUDE_PROJECT_DIR)" ]'
+ok "every skill command that touches .trackside goes through the project root" '[ -z "$(grep -nE "\`(bash|git|grep)[^\`]*\.trackside" "$H"/skills/*/SKILL.md | grep -v CLAUDE_PROJECT_DIR)" ]'
 
 echo "---"
 echo "passed $pass, failed $fail"
