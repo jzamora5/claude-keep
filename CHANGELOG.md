@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.16.1 · 2026-10-23
+
+Fixes from an audit of 0.16.0, each with a regression test that fails on 0.16.0:
+
+- On a track where each item starts clean, `STATE.md` now loads before `LESSONS.md`, with the room `LESSONS.md` needs held back from its budget. With every file at its size limit, the reload used to leave out `STATE.md` entirely, Current and Next step included.
+- A repo on a detached HEAD no longer reports a branch change and uncommitted changes right after a save, and a track with an empty Current and no goal no longer lists a date as its current work. Both came from empty fields in tab-separated records, which now hold "-".
+- The deep review no longer comes due every two weeks when nothing changed: its record now compares the track's files and source docs, without the date.
+- A typed `/trackside:start off` with unsaved work tells the user that work wasn't saved, as the start skill's own unbinding does.
+- A chat the user renamed after it started keeps that name when it binds. The prompt hook now reads the chat's title too.
+- Unbinding or closing a track clears the save reminder's marker, so after binding again the reminder comes before the reply again.
+- The 30-day cleanup keeps deep-review records and the tracks remembered for chats the user named.
+- Renaming a feature works when the project's path contains "@", as Google Drive folders do.
+- One section parser, shared by the reload, the check and the state readers. It matches a heading's whole name, so "## Current risks" is no longer read as part of "## Current", and it skips "## " lines inside code blocks.
+- The check rejects an unknown mode instead of running as start. The skills commit the trackside folder in two commands, one per call, as they say. Two leftover mentions of the old name now say trackside.
+
 ## 0.16.0 · 2026-10-23
 
 Ideas from an earlier plugin with the old name, lackeyjb/claude-keep:

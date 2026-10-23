@@ -87,14 +87,14 @@ The `doc-expert` subagent answers questions from the source docs, so a chat neve
   .state/            runtime files and each track's git stamp, ignored by git
 ```
 
-The trackside folder is always `.trackside/` in the project root. A chat that moves to another folder after it starts keeps the project root it started in; when that has no `.trackside/`, keep uses the nearest one at or above the folder the chat works in. The git stamps describe this machine's checkouts, so they live in `.state/` and never travel with the state. Freshness leaves `.trackside/` out when it checks a repo, so the state's own files never count as code changes. When it creates `.trackside/`, the agent offers two separate choices: keeping `.trackside/` out of the project's git, through the local exclude file that isn't shared, and giving `.trackside/` its own history, which keep then commits to as it saves. These environment variables change the defaults:
+The trackside folder is always `.trackside/` in the project root. A chat that moves to another folder after it starts keeps the project root it started in; when that has no `.trackside/`, trackside uses the nearest one at or above the folder the chat works in. The git stamps describe this machine's checkouts, so they live in `.state/` and never travel with the state. Freshness leaves `.trackside/` out when it checks a repo, so the state's own files never count as code changes. When it creates `.trackside/`, the agent offers two separate choices: keeping `.trackside/` out of the project's git, through the local exclude file that isn't shared, and giving `.trackside/` its own history, which keep then commits to as it saves. These environment variables change the defaults:
 
 | Variable | Default | What it sets |
 | --- | --- | --- |
 | `TRACKSIDE_SAVE_MINUTES` | 15 | Minutes between requests to update STATE.md; 0 asks after every working turn |
 | `COMPACT_LIMIT` | 2 | Compactions before the agent suggests saving and starting a fresh chat |
 | `TRACKSIDE_IDLE_DAYS` | 14 | Days without a state update before a track is flagged as idle |
-| `TRACKSIDE_STATE_DAYS` | 30 | Days before runtime files of old sessions are cleared |
+| `TRACKSIDE_STATE_DAYS` | 30 | Days before runtime files of old sessions are cleared; git stamps, deep-review records and the tracks remembered for chats you named are kept |
 
 ## Install
 
@@ -131,7 +131,7 @@ trackside's skills run their own scripts without asking. Saving STATE.md outside
 
 ## Status
 
-Version 0.16.0, early ([changelog](CHANGELOG.md)). Until 0.15.0 the plugin was called keep: two other Claude Code plugins use that name, and Claude Code runs the hooks of only one enabled plugin per name. The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2, and 21 behaviors are checked in real headless sessions with `claude plugin eval` (`bash tests/evals.sh`, cases in `plugins/trackside/evals/`). `tests/rule-homes.tsv` lists each rule stated in more than one file, with its home and why each copy exists, and the tests fail when a rule turns up anywhere else. `tests/live-checklist.md` lists the checks that still need a person: several messages in a row, `/clear`, resume, compaction and the app's permission prompts.
+Version 0.16.1, early ([changelog](CHANGELOG.md)). Until 0.15.0 the plugin was called keep: two other Claude Code plugins use that name, and Claude Code runs the hooks of only one enabled plugin per name. The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2, and 21 behaviors are checked in real headless sessions with `claude plugin eval` (`bash tests/evals.sh`, cases in `plugins/trackside/evals/`). `tests/rule-homes.tsv` lists each rule stated in more than one file, with its home and why each copy exists, and the tests fail when a rule turns up anywhere else. `tests/live-checklist.md` lists the checks that still need a person: several messages in a row, `/clear`, resume, compaction and the app's permission prompts.
 
 ## Credits
 

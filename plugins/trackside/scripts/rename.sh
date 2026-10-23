@@ -94,7 +94,7 @@ if [ -n "$track" ]; then
 else
   for s in "$st/stamp-$old@"* "$st/deep-$old@"*; do
     [ -f "$s" ] || continue
-    case "$s" in */stamp-*) mv "$s" "$st/stamp-$new@${s#*@}" ;; *) mv "$s" "$st/deep-$new@${s#*@}" ;; esac
+    case "$s" in */stamp-*) mv "$s" "$st/stamp-$new@${s##*@}" ;; *) mv "$s" "$st/deep-$new@${s##*@}" ;; esac
   done
 fi
 

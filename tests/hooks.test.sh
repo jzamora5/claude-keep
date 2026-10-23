@@ -524,6 +524,12 @@ read -r _ size fp < "$AS/deep-app@main"; printf '%s %s %s\n' "$(( $(date +%s) - 
 out=$(au due);                                         ok "two weeks without changes isn't enough" '[ -z "$out" ]'
 read -r _ size fp < "$AS/deep-app@main"; printf '%s %s %s\n' "$(( $(date +%s) - 1300000 ))" "$size" "old" > "$AS/deep-app@main"
 out=$(au due);                                         ok "two weeks with changes is" '[ "$out" = due ]'
+au reviewed
+DS=$(mktemp -d "${TMPDIR:-/tmp}/trackside-date.XXXXXX")
+printf '#!/bin/sh\ncase "$1" in +%%Y-%%m-%%d) echo 2020-01-01 ;; *) exec /bin/date "$@" ;; esac\n' > "$DS/date"; chmod +x "$DS/date"
+read -r _ size fp < "$AS/deep-app@main"; printf '%s %s %s\n' "$(( $(date +%s) - 1300000 ))" "$size" "$fp" > "$AS/deep-app@main"
+out=$(PATH="$DS:$PATH" au due);                        ok "a review recorded on another day isn't due two weeks later when nothing changed" '[ -z "$out" ]'
+rm -rf "$DS"
 mkdir -p "$AK/app/small"; cp "$AK/app/FEATURE.md" "$AK/app/small/NOTES.md"
 printf '# State: app/small\n\n## Current\n- [verified] fine\n\n## Next step\n- ship it\n' > "$AK/app/small/STATE.md"
 out=$(au due app/small);                               ok "a small track isn't due, and starts its two-week clock" '[ -z "$out" ] && [ -f "$AS/deep-app@small" ]'
@@ -690,6 +696,64 @@ ok "without gh it prints nothing and succeeds" '[ "$out" = "exit=0" ]'
 ok "next runs it, read-only, and done names the pull request in the Done-log line" 'grep -q "scripts/prs.sh" "$H/skills/next/SKILL.md" && grep -q "It only reads" "$H/skills/next/SKILL.md" && grep -q "add it to the ticket'"'"'s Done-log line as \`<repo>#<number>\`" "$H/skills/done/SKILL.md"'
 ok "done asks about moving repo lessons in the same request as the commit, not separately" 'grep -q "list each one in the same request" "$H/skills/done/SKILL.md" && grep -q "approving the commit approves those moves too" "$H/skills/done/SKILL.md"'
 rm -rf "$P" "$GB" "$NG"
+
+echo "--- regressions from the 2026-10-23 audit"
+X=$(mktemp -d "${TMPDIR:-/tmp}/trackside-regress.XXXXXX"); XK="$X/.trackside"; XS="$XK/.state"
+mkdir -p "$XK/rev/prs" "$XS"
+xh() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$X" "$H/hooks/$1.sh"; }
+long() { head -c "$1" /dev/zero | tr '\0' "$2"; }
+printf '# Feature: rev\n\n%s\n' "$(long 1950 f)" > "$XK/rev/FEATURE.md"
+printf '# Track: rev/prs\n\n**Each item starts clean:** yes\n\n%s\n' "$(long 2500 c)" > "$XK/rev/prs/CONTEXT.md"
+printf '# Lessons: rev/prs\n\n## Lessons\n- %s\n\n## Candidates\n' "$(long 3900 l)" > "$XK/rev/prs/LESSONS.md"
+state rev/prs "api#7 in flight" "post the api#7 review" > "$XK/rev/prs/STATE.md"
+printf 'rev/prs\n' > "$XS/track-x1"
+out=$(xh load '{"session_id":"x1","source":"resume"}')
+ok "a clean track with every file at its limit still reloads STATE.md's Current and Next step" '[[ "$out" == *"api#7 in flight"* && "$out" == *"post the api#7 review"* ]] && [ "$(printf "%s" "$out" | wc -c | tr -d " ")" -le 9800 ]'
+ok "and what was cut is LESSONS.md, which it names" '[[ "$out" == *"Read .trackside/rev/prs/LESSONS.md for them"* || "$out" == *"read .trackside/rev/prs/LESSONS.md in full"* ]] && [[ "$out" != *"STATE.md in full"* ]]'
+
+mkdir -p "$X/api" "$XK/solo/one"; q "$X/api" init -b main; q "$X/api" -c user.name=t -c user.email=t@example.com commit --allow-empty -m "start api"
+q "$X/api" checkout --detach
+printf '# Feature: solo\n\n**Repos:** api\n' > "$XK/solo/FEATURE.md"
+printf '# State: solo/one\n\n## Inbox\n\n## Current\n\n## Next step\n\n## Done log\n' > "$XK/solo/one/STATE.md"
+printf 'solo/one\n' > "$XS/track-x2"
+xh track "{\"session_id\":\"x2\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$XK/solo/one/STATE.md\"}}" >/dev/null
+out=$(bash "$H/scripts/freshness.sh" "$X" solo/one)
+ok "a repo on a detached HEAD shows no change right after a save" '[[ "$out" == *"- api (detached): no changes"* ]]'
+out=$(bash "$H/scripts/status.sh" "$X"); err=$(bash "$H/scripts/index.sh" "$X" 2>&1 >/dev/null)
+ok "a track with an empty Current and no goal lists no current work, not a date" '[[ "$out" == *"- solo/one: no current work (start: /trackside:start solo/one)"* ]] && grep -q "^| solo/one | none |" "$XK/INDEX.md" && [ -z "$err" ]'
+
+xh bind '{"session_id":"x3","prompt":"/trackside:start solo/one"}' >/dev/null; touch "$XS/dirty-x3"
+xh bind '{"session_id":"x3","prompt":"/trackside:start off"}' >/dev/null
+out=$(bash "$H/scripts/bind.sh" "$X" x3 off)
+ok "a typed /trackside:start off still tells the user their work wasn't saved" '[ "$out" = "Unbound this chat from solo/one. Its work since the last save wasn'"'"'t saved there." ] && [ ! -f "$XS/off-x3" ]'
+out=$(xh bind '{"session_id":"x4","prompt":"/trackside:start solo/one","session_title":"my-review"}')
+ok "a chat renamed after it started keeps its name when it binds" '[ -z "$out" ] && [ "$(cat "$XS/name-x4")" = my-review ] && [ "$(cat "$XS/track-x4")" = solo/one ] && [ "$(cat "$(. "$H/scripts/common.sh"; name_file "$XK" my-review)")" = solo/one ]'
+
+printf 'solo/one\n' > "$XS/track-x5"
+out=$(xh track "{\"session_id\":\"x5\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$X/api/a.js\"}}")
+bash "$H/scripts/bind.sh" "$X" x5 off >/dev/null; bash "$H/scripts/bind.sh" "$X" x5 solo/one >/dev/null
+out=$(xh track "{\"session_id\":\"x5\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$X/api/a.js\"}}")
+ok "after unbinding and binding again, the reminder to save before replying comes back" '[[ "$out" == *"Before you write your reply"* ]]'
+
+printf '1 2 x\n' > "$XS/deep-solo@one"; printf 'solo/one\n' > "$(. "$H/scripts/common.sh"; name_file "$XK" "Old chat")"; printf 'solo/one\n' > "$XS/track-old9"
+ago40=$(date -v-40d +%Y%m%d%H%M 2>/dev/null || date -d "40 days ago" +%Y%m%d%H%M)
+touch -t "$ago40" "$XS/deep-solo@one" "$XS/track-old9" "$(. "$H/scripts/common.sh"; name_file "$XK" "Old chat")"
+xh load '{"session_id":"x6","source":"startup"}' >/dev/null
+ok "the 30-day cleanup keeps deep-review records and named chats' tracks, and clears old bindings" '[ -f "$XS/deep-solo@one" ] && [ -f "$(. "$H/scripts/common.sh"; name_file "$XK" "Old chat")" ] && [ ! -f "$XS/track-old9" ]'
+
+Y=$(mktemp -d "${TMPDIR:-/tmp}/trackside-a@b.XXXXXX"); YK="$Y/.trackside"; mkdir -p "$YK/shop/tickets" "$YK/.state"
+state shop/tickets none none > "$YK/shop/tickets/STATE.md"; printf 'x\n' > "$YK/.state/stamp-shop@tickets"; printf '1 2 x\n' > "$YK/.state/deep-shop@tickets"
+out=$(bash "$H/scripts/rename.sh" "$Y" shop store 2>&1)
+ok "renaming a feature under a path with @ in it moves its stamps and review record" '[ -f "$YK/.state/stamp-store@tickets" ] && [ -f "$YK/.state/deep-store@tickets" ] && [[ "$out" != *"No such file"* ]]'
+
+printf '# State: solo/one\n\n## Current\n- real work [verified]\n\n## Current risks\n- an unmarked risk\n\n## Next step\n```\n## not a heading\n```\n- run it\n' > "$XK/solo/one/STATE.md"
+out=$(bash "$H/scripts/audit.sh" "$X" solo/one start)
+ok "a heading that starts with another one's name isn't read as part of it" '[[ "$out" != *"not marked [verified]"* ]] && [ "$(. "$H/scripts/common.sh"; current_line "$XK/solo/one/STATE.md")" = "real work [verified]" ]'
+ok "a ## line inside a code block isn't a heading" '[ "$(. "$H/scripts/common.sh"; sections "$XK/solo/one/STATE.md" | cut -f1 | tr "\n" "|")" = "Current|Current risks|Next step|" ]'
+out=$(bash "$H/scripts/audit.sh" "$X" solo/one strat 2>&1; echo "exit=$?")
+ok "the check refuses an unknown mode instead of running as start" '[[ "$out" == *"Unknown mode: strat"* && "$out" == *"exit=1"* ]]'
+ok "skills run each command on its own, commits included" '! grep -q "add -A &&" "$H"/skills/*/SKILL.md'
+rm -rf "$X" "$Y"
 
 echo "--- each rule has one home"
 while IFS=$'\t' read -r phrase home copies why; do

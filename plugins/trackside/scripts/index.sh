@@ -26,6 +26,7 @@ trap 'rm -f "$tmp"' EXIT
     echo "| Track | Current work or goal | Last update | Start it with |"
     echo "| --- | --- | --- | --- |"
     while IFS=$'\t' read -r f t cur updated days; do
+      [ "$cur" != - ] || cur=""
       note=""
       [ "$days" -ge "$idle" ] && note=", idle $days days: \`/trackside:close $f/$t\`?"
       kind=""

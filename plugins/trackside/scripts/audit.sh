@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Usage: audit.sh <project root> <feature>/<track> start|save|due|reviewed trackside's automatic check of one track.
-# start prints every open issue; save prints only the ones not reported yet. Both skip the scan when the track's
-# files haven't changed since the last one, so a clean or unchanged track costs almost nothing. due prints "due"
-# when the track needs a deep review (the audit skill) and marks one as started; reviewed records that its result
-# was handled.
+# Usage: audit.sh <project root> <feature>/<track> start|save|due|reviewed
+# trackside's automatic check of one track. start prints every open issue; save prints only the ones not reported
+# yet. Both skip the scan when the track's files haven't changed since the last one, so a clean or unchanged track
+# costs almost nothing. due prints "due" when the track needs a deep review (the audit skill) and marks one as
+# started; reviewed records that its result was handled.
 set -uo pipefail
 . "$(dirname "$0")/common.sh"
 root=$(keep_root "${1:?project root}" "$PWD")
 track="${2:?<feature>/<track>}"
-mode="${3:?start, save or due}"
+mode="${3:?start, save, due or reviewed}"
+case "$mode" in start|save|due|reviewed) ;; *) echo "Unknown mode: $mode. Use start, save, due or reviewed." >&2; exit 1 ;; esac
 keep=$(keep_dir "$root")
 f="${track%%/*}"
 t="${track#*/}"
@@ -25,15 +26,15 @@ cache="$st/audit-$f@$t"
 told="$cache.told"
 
 size() { if [ -f "$1" ]; then wc -c < "$1" | tr -d ' '; else echo 0; fi; }
-# The script, the date and the source docs are part of the fingerprint: a trackside update with different checks
-# scans again, and so does a new day, since the Inbox check depends on the date, and a changed doc, since the
-# ID check depends on it.
-fingerprint() {
-  { date +%Y-%m-%d; cat "$0" "$feature" "$context" "$state" "$notes" "$lessons" 2>/dev/null
+# content_fingerprint: the track's files and the feature's source docs. The deep review compares it across weeks, so
+# it leaves out the date and the script.
+content_fingerprint() {
+  { cat "$feature" "$context" "$state" "$notes" "$lessons" 2>/dev/null
     source_docs "$keep" "$f" | while IFS= read -r p; do cat "$root/$p"; done; } | cksum | tr ' ' '-'
 }
-# section <file> <heading>: the lines under "## <heading>".
-section() { awk -v h="## $2" 'index($0, "## ") == 1 { c = (index($0, h) == 1); next } c' "$1" 2>/dev/null; }
+# The quick check's cache adds the script and the date: a trackside update with different checks scans again, and
+# so does a new day, since the Inbox check depends on the date.
+fingerprint() { { date +%Y-%m-%d; cat "$0"; content_fingerprint; } | cksum | tr ' ' '-'; }
 epoch() { date -j -f %Y-%m-%d "$1" +%s 2>/dev/null || date -d "$1" +%s 2>/dev/null; }
 
 # Limits match what a reload keeps whole; fixes aim well under them so a file doesn't flip back every save.
@@ -126,7 +127,7 @@ if [ "$mode" = due ] || [ "$mode" = reviewed ]; then
   deep="$st/deep-$f@$t"
   now=$(date +%s)
   ns=$(size "$notes")
-  fp=$(fingerprint)
+  fp=$(content_fingerprint)
   if [ "$mode" = reviewed ]; then
     printf '%s %s %s\n' "$now" "$ns" "$fp" > "$deep"
     rm -f "$deep.started"

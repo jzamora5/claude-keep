@@ -60,6 +60,8 @@ bind_chat() {
     printf '%s' "$before"
     return 2
   fi
+  # A reminder or an unbinding note left from before no longer applies once the chat is on another track.
+  [ "$before" = "$target" ] || rm -f "$1/.state/nudged-$2" "$1/.state/off-$2"
   printf '%s\n' "$target" > "$1/.state/track-$2"
   printf '%s' "$target"
 }
@@ -70,7 +72,7 @@ unbind_chat() {
   local before
   before=$(cat "$1/.state/track-$2" 2>/dev/null || true)
   [ -n "$before" ] || return 0
-  rm -f "$1/.state/track-$2" "$1/.state/dirty-$2" "$1/.state/saved-$2"
+  rm -f "$1/.state/track-$2" "$1/.state/dirty-$2" "$1/.state/saved-$2" "$1/.state/nudged-$2"
   printf '%s (unbound)' "$before"
 }
 
@@ -107,10 +109,27 @@ save_due() {
   [ "$mins" = 0 ] || [ ! -f "$1/saved-$2" ] || [ -n "$(find "$1/saved-$2" -mmin +"$mins" 2>/dev/null)" ]
 }
 
+# sections <file>: one line per "## " heading outside code fences: its name, its line and the last line of its
+# section, tab-separated; a heading with no name is named "-", so no field is ever empty.
+sections() {
+  awk '/^(```|~~~)/ { fence = !fence }
+       !fence && /^## / { if (n) print name "\t" s "\t" NR - 1; name = substr($0, 4); sub(/[[:space:]]+$/, "", name)
+                          if (name == "") name = "-"; s = NR; n = 1 }
+       END { if (n) print name "\t" s "\t" NR }' "$1" 2>/dev/null
+}
+
+# section <file> <heading>: the lines under the heading named exactly "## <heading>".
+section() {
+  local name s e
+  while IFS=$'\t' read -r name s e; do
+    if [ "$name" = "$2" ]; then sed -n "$((s + 1)),${e}p" "$1"; return 0; fi
+  done < <(sections "$1")
+  return 0
+}
+
 # section_line <STATE.md> <heading>: the first entry under "## <heading>", skipping comments and blank lines.
 section_line() {
-  awk -v h="## $2" 'index($0, "## ") == 1 { c = (index($0, h) == 1); next }
-       c && $0 !~ /^[[:space:]]*(<!--.*-->)?[[:space:]]*$/ { sub(/^[[:space:]]*[-*][[:space:]]*/, ""); print; exit }' "$1" 2>/dev/null | cut -c1-140
+  section "$1" "$2" | awk '$0 !~ /^[[:space:]]*(<!--.*-->)?[[:space:]]*$/ { sub(/^[[:space:]]*[-*][[:space:]]*/, ""); print; exit }' | cut -c1-140
 }
 
 current_line() { section_line "$1" Current; }
@@ -139,7 +158,8 @@ track_rows() {
         goal=$(goal_line "$1/$f/$t/CONTEXT.md" | tr '\t' ' ')
         [ -n "$goal" ] && work="Goal: $goal"
       fi
-      printf '%s\t%s\t%s\t%s\t%s\n' "$f" "$t" "$work" "$(date -r "$s" +%Y-%m-%d 2>/dev/null)" "$(age_days "$s")"
+      # Empty fields are written as "-": two tabs in a row would read as one, shifting the fields after them.
+      printf '%s\t%s\t%s\t%s\t%s\n' "$f" "$t" "${work:--}" "$(date -r "$s" +%Y-%m-%d 2>/dev/null || echo -)" "$(age_days "$s")"
     done
   done
 }

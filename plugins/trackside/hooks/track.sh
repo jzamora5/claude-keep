@@ -28,6 +28,8 @@ case "$(field .tool_name)" in
     exit 0 ;;
 esac
 
+# Empty fields are written as "-": freshness reads the stamp with tab as the separator, and two tabs in a row would
+# read as one.
 write_stamp() {
   local stamp tmp r dir
   stamp=$(stamp_file "$keep" "$binding")
@@ -37,9 +39,9 @@ write_stamp() {
     git -C "$dir" rev-parse --git-dir >/dev/null 2>&1 || continue
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$r" \
       "$(git -C "$dir" rev-parse HEAD 2>/dev/null)" \
-      "$(git -C "$dir" branch --show-current 2>/dev/null)" \
+      "$(git -C "$dir" branch --show-current 2>/dev/null | grep . || echo -)" \
       "$(repo_status "$dir" | wc -l | tr -d ' ')" \
-      "$(changes_fingerprint "$dir")" \
+      "$(changes_fingerprint "$dir" | grep . || echo -)" \
       "$(date -u +%Y-%m-%dT%H:%MZ)" >> "$tmp"
   done < <(repos_of "$keep/${binding%%/*}/FEATURE.md")
   mv "$tmp" "$stamp"

@@ -17,5 +17,5 @@ Update the bound track's STATE.md in `${CLAUDE_PROJECT_DIR}/.trackside/<feature>
 6. Edit STATE.md in place: never rewrite it whole, and never delete a ticket or Done-log line. Leave an empty section with just its comment. Keep the file under 5,000 bytes by moving older Done-log lines and settled gotchas to NOTES.md.
 7. If trackside's check listed issues for this track in this chat, fix now the ones that only move or de-duplicate text or fill in what's missing, and list the others for the user in your reply. If it listed none, skip this.
 8. If the user corrected the same mistake more than once, propose a one-line rule for FEATURE.md or CONTEXT.md. Show it; don't add it silently.
-9. Don't commit unfinished code without asking. If the trackside folder is its own git repo, commit it: `git -C "${CLAUDE_PROJECT_DIR}/.trackside" add -A && git -C "${CLAUDE_PROJECT_DIR}/.trackside" commit -m "<feature>/<track>: save"`.
+9. Don't commit unfinished code without asking. If the trackside folder is its own git repo, commit it: `git -C "${CLAUDE_PROJECT_DIR}/.trackside" add -A`, then `git -C "${CLAUDE_PROJECT_DIR}/.trackside" commit -m "<feature>/<track>: save"`.
 10. Reply with "Saved.", then one line for each decision, Inbox line or rule you wrote, then "Type /clear, or start a new chat with /trackside:start <feature>/<track>." with the track's full name.

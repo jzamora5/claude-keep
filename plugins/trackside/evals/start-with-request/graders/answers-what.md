@@ -1,5 +1,5 @@
 ---
 type: regex
-pattern: 'unchanged|the (same |original )?total|as[- ]is|no discount'
+pattern: 'unchanged|untouched|as[- ]is|no discount|the (same |original |input )?total|returns? `?total`?|does(n.t| not) (apply|change)'
 flags: i
 ---

@@ -48,7 +48,7 @@ for b in "$st"/track-*; do
   if [ -n "$track" ]; then [ "$v" = "$feature/$track" ] && match=1; else [[ "$v" == "$feature"/* ]] && match=1; fi
   if [ "$match" = 1 ]; then
     sid="${b##*/track-}"
-    rm -f "$b" "$st/dirty-$sid" "$st/compactions-$sid"
+    rm -f "$b" "$st/dirty-$sid" "$st/compactions-$sid" "$st/nudged-$sid"
     unbound=$((unbound + 1))
   fi
 done

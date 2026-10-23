@@ -17,6 +17,7 @@ if [ -z "$rows" ]; then
   exit 0
 fi
 while IFS=$'\t' read -r f t cur _ days; do
+  [ "$cur" != - ] || cur=""
   kind=""
   starts_clean "$keep" "$f/$t" && kind=" (each item starts clean)"
   line="- $f/$t$kind: ${cur:-no current work} (start: /trackside:start $f/$t)"

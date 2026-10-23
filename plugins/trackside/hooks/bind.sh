@@ -7,9 +7,19 @@
 
 prompt=$(field .prompt)
 name=$(chat_name "$keep" "$sid")
+# A name the user gives a chat after it starts reaches this hook before SessionStart sees it.
+given=$(field .session_title)
+if [ -n "$given" ] && ! keep_title "$given"; then
+  name="$given"
+  printf '%s\n' "$given" > "$st/name-$sid"
+fi
 title=""
 if [[ "$prompt" =~ ^/(trackside:)?start[[:space:]]+([^[:space:]]+)([[:space:]]|$) ]]; then
   if [ "${BASH_REMATCH[2]}" = off ]; then
+    # The start skill runs next and reports the unbinding, unsaved work included, from this note.
+    if [ -s "$st/track-$sid" ]; then
+      { cat "$st/track-$sid"; [ ! -f "$st/dirty-$sid" ] || echo unsaved; } > "$st/off-$sid"
+    fi
     title=$(unbind_chat "$keep" "$sid")
     [ -z "$name" ] || map_name "$keep" "$name" off
   elif target=$(bind_chat "$keep" "$sid" "${BASH_REMATCH[2]}"); then

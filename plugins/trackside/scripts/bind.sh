@@ -25,12 +25,17 @@ if [ "$name" = off ]; then
   unsaved=""
   [ -f "$st/dirty-$sid" ] && unsaved=" Its work since the last save wasn't saved there."
   title=$(unbind_chat "$keep" "$sid")
-  if [ -z "$title" ]; then
+  if [ -z "$title" ] && [ -s "$st/off-$sid" ]; then
+    # A typed /trackside:start off was already unbound by the prompt hook, which left this note.
+    grep -qx unsaved "$st/off-$sid" && unsaved=" Its work since the last save wasn't saved there."
+    echo "Unbound this chat from $(head -1 "$st/off-$sid").$unsaved"
+  elif [ -z "$title" ]; then
     echo "This chat isn't bound to a track."
   else
     if [ -n "$own" ]; then map_name "$keep" "$own" off; else printf '%s' "$title" > "$st/title-$sid"; fi
     echo "Unbound this chat from ${title% (unbound)}.$unsaved"
   fi
+  rm -f "$st/off-$sid"
   note_jq
   exit 0
 fi

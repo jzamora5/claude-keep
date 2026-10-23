@@ -69,6 +69,8 @@ fi
 echo "Since STATE.md was last written ($(head -1 "$stamp" | cut -f6)):"
 while IFS=$'\t' read -r repo hash branch dirty fingerprint _; do
   [ -n "$repo" ] || continue
+  [ "$branch" != - ] || branch=""
+  [ "$fingerprint" != - ] || fingerprint=""
   dir=$(repo_dir "$root" "$repo" "$worktree")
   label="$repo"
   [ "$repo" = "." ] && [ -n "$worktree" ] && label=". in worktree ${worktree##*/}"

@@ -30,8 +30,7 @@ emit() {
   while IFS=$'\t' read -r name s e; do
     [ -n "$name" ] || continue
     names+=("$name"); starts+=("$s"); ends+=("$e"); inc+=(0)
-  done < <(awk '/^## /{ if (n) print name "\t" s "\t" NR-1; name = substr($0, 4); s = NR; n = 1 }
-                END { if (n) print name "\t" s "\t" NR }' "$f")
+  done < <(sections "$f")
   n=${#names[@]}
   if [ "$n" -eq 0 ]; then
     add "$(lines_within "$b" < "$f")"
@@ -90,9 +89,10 @@ else
 fi
 [ "$src" = "clear" ] && rm -f "$st/compactions-$sid"
 
-# Housekeeping: runtime files of old sessions only pile up, and a resumed chat rebinds from its title.
-# Stamps are kept: they matter most after a long pause, and closing a track removes its own.
-find "$st" -type f ! -name .gitignore ! -name 'stamp-*' -mtime +"${TRACKSIDE_STATE_DAYS:-30}" -exec rm -f {} + 2>/dev/null
+# Housekeeping: runtime files of old sessions only pile up, and a resumed chat rebinds from its title. Stamps, the
+# deep-review records and the tracks remembered for chats the user named are kept: they matter most after a long
+# pause, and closing a track removes its own.
+find "$st" -type f ! -name .gitignore ! -name 'stamp-*' ! -name 'deep-*' ! -name 'named-*' -mtime +"${TRACKSIDE_STATE_DAYS:-30}" -exec rm -f {} + 2>/dev/null
 [ -n "$binding" ] && printf '%s\n' "$binding" > "$st/track-$sid"
 bash "$here/../scripts/index.sh" "$root" 2>/dev/null
 
@@ -157,11 +157,23 @@ if [ -z "$worktree" ]; then
 fi
 emit "FEATURE.md" "$fdir/FEATURE.md" 2000
 emit "CONTEXT.md" "$tdir/CONTEXT.md" 2600
-starts_clean "$keep" "$binding" && emit "LESSONS.md" "$tdir/LESSONS.md" 4000
-emit "STATE.md" "$tdir/STATE.md" $(( budget - $(bytes "$out") - 200 )) "Inbox" "Current" "Next step"
+# STATE.md loads before LESSONS.md, so the last-resort cut at the end can't take its Current and Next step; the room
+# LESSONS.md needs is held back from STATE.md's own budget instead.
+last="$tdir/STATE.md"
+held=0
+if starts_clean "$keep" "$binding" && [ -f "$tdir/LESSONS.md" ]; then
+  last="$tdir/LESSONS.md"
+  held=$(wc -c < "$last" | tr -d ' ')
+  [ "$held" -le 4000 ] || held=4000
+fi
+emit "STATE.md" "$tdir/STATE.md" $(( budget - $(bytes "$out") - 200 - held )) "Inbox" "Current" "Next step"
+if [ "$last" != "$tdir/STATE.md" ]; then
+  room=$(( budget - $(bytes "$out") - 200 ))
+  emit "LESSONS.md" "$last" $(( room < 4000 ? room : 4000 ))
+fi
 
 if [ "$(bytes "$out")" -gt 9800 ]; then
-  out="$(printf '%s' "$out" | lines_within 9600)"$'\n'"[Cut to stay under the hook output limit: read $(rel "$tdir")/STATE.md in full.]"
+  out="$(printf '%s' "$out" | lines_within 9600)"$'\n'"[Cut to stay under the hook output limit: read $(rel "$last") in full.]"
 fi
 printf '%s' "$out"
 exit 0
