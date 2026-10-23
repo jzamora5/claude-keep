@@ -435,13 +435,14 @@ for t in tickets research; do
 done
 printf -- '- 2026-10-22 · from shop/tickets · a note\n' >> "$NK/shop/research/STATE.md"
 printf 'shop/tickets\n' > "$NS/track-n1"; printf 'shop/tickets\n' > "$NS/track-n2"; printf 'shop/research\n' > "$NS/track-n3"
-printf 'x\n' > "$NS/stamp-shop@tickets"
+printf 'x\n' > "$NS/stamp-shop@tickets"; printf '1 2 x\n' > "$NS/deep-shop@tickets"
 printf 'shop/tickets\n' > "$NS/track-n4"; printf 'Review chat\n' > "$NS/name-n4"
 NF=$(. "$H/scripts/common.sh"; name_file "$NK" "Review chat"); printf 'shop/tickets\n' > "$NF"
 out=$(bash "$H/scripts/rename.sh" "$N" shop/tickets build)
 ok "renaming a track moves its folder and updates its headers" '[ -f "$NK/shop/build/STATE.md" ] && [ ! -e "$NK/shop/tickets" ] && head -1 "$NK/shop/build/STATE.md" | grep -qx "# State: shop/build" && head -1 "$NK/shop/build/CONTEXT.md" | grep -qx "# Track: shop/build"'
 ok "its chats stay bound and get the new name at their next message" '[ "$(cat "$NS/track-n1")" = shop/build ] && [ "$(cat "$NS/track-n2")" = shop/build ] && [ "$(cat "$NS/title-n1")" = shop/build ] && [ "$(cat "$NS/track-n3")" = shop/research ] && [ ! -f "$NS/title-n3" ] && [[ "$out" == *"renamed at their next message: 2"* ]]'
 ok "a chat the user named stays bound, keeps its name, and its remembered track follows" '[ "$(cat "$NS/track-n4")" = shop/build ] && [ ! -f "$NS/title-n4" ] && [ "$(cat "$NF")" = shop/build ] && [[ "$out" == *"Chats kept bound: 3, renamed at their next message: 2"* ]]'
+ok "its stamp and deep-review record follow it" '[ -f "$NS/stamp-shop@build" ] && [ ! -e "$NS/stamp-shop@tickets" ] && [ -f "$NS/deep-shop@build" ] && [ ! -e "$NS/deep-shop@tickets" ]'
 ok "its stamp follows it" '[ -f "$NS/stamp-shop@build" ] && [ ! -e "$NS/stamp-shop@tickets" ]'
 ok "the index lists the new name" 'grep -q "| shop/build |" "$NK/INDEX.md" && ! grep -q "shop/tickets |" "$NK/INDEX.md"'
 ok "other mentions of the old name are listed, not changed" '[[ "$out" == *"Still mention shop/tickets:"*".keep/shop/research/STATE.md"* ]] && grep -q "from shop/tickets" "$NK/shop/research/STATE.md"'
@@ -487,10 +488,15 @@ out=$(au save);                                        ok "(setup) the fixed iss
 sed '/^- run npm test$/d' "$AK/app/main/STATE.md" > "$A/s" && mv "$A/s" "$AK/app/main/STATE.md"
 out=$(au save);                                        ok "an issue that comes back is reported again, alone" '[ "$out" = "- Next step is empty: write one concrete action (the file and function to touch, or the command to run)." ]'
 out=$(au start);                                       ok "a chat start reports every open issue again" '[ "$(printf "%s\n" "$out" | wc -l | tr -d " ")" = 9 ]'
-out=$(au due);                                         ok "a track never reviewed with notes over 10 KB is due" '[ "$out" = due ]'
-out=$(au due);                                         ok "then not again right away" '[ -z "$out" ]'
+out=$(au due);                                         ok "a track never reviewed with notes over 10 KB is due" '[ "$out" = due ] && [ -f "$AS/deep-app@main.started" ] && [ ! -f "$AS/deep-app@main" ]'
+out=$(au due);                                         ok "a review started in the last hour isn't started again" '[ -z "$out" ]'
+touch -t "$(date -v-2H +%Y%m%d%H%M 2>/dev/null || date -d '2 hours ago' +%Y%m%d%H%M)" "$AS/deep-app@main.started"
+out=$(au due);                                         ok "a review whose result was lost is started again after an hour" '[ "$out" = due ]'
+au reviewed;                                           ok "a handled review is recorded" '[ -f "$AS/deep-app@main" ] && [ ! -f "$AS/deep-app@main.started" ]'
+out=$(au due);                                         ok "then the track isn't due" '[ -z "$out" ]'
 head -c 11000 < /dev/zero | tr '\0' 'm' >> "$AK/app/main/NOTES.md"
 out=$(au due);                                         ok "notes that grew by 10 KB make it due again" '[ "$out" = due ]'
+au reviewed
 read -r _ size fp < "$AS/deep-app@main"; printf '%s %s %s\n' "$(( $(date +%s) - 1300000 ))" "$size" "$fp" > "$AS/deep-app@main"
 out=$(au due);                                         ok "two weeks without changes isn't enough" '[ -z "$out" ]'
 read -r _ size fp < "$AS/deep-app@main"; printf '%s %s %s\n' "$(( $(date +%s) - 1300000 ))" "$size" "old" > "$AS/deep-app@main"
@@ -509,6 +515,15 @@ out=$(printf '{"session_id":"a1","source":"resume"}' | CLAUDE_PROJECT_DIR="$A" "
 ok "a chat start lists the open issues for the agent" '[[ "$out" == *"keep'"'"'s check of this track:"*"Next step is empty"* ]]'
 out=$(printf '{"session_id":"a2","source":"resume"}' | CLAUDE_PROJECT_DIR="$A" "$H/hooks/load.sh")
 ok "and says nothing for a clean track" '[[ "$out" != *"keep'"'"'s check"* ]]'
+rm -f "$AS"/deep-app@main*
+err=$(printf '{"session_id":"a1","source":"resume"}' | CLAUDE_PROJECT_DIR="$A" "$H/hooks/load.sh" 2>&1 >/dev/null); rm -f "$AS"/deep-app@main.started
+ok "a chat start on a due track writes nothing to stderr" '[ -z "$err" ]'
+out=$(printf '{"session_id":"a1","source":"resume"}' | CLAUDE_PROJECT_DIR="$A" "$H/hooks/load.sh")
+ok "a chat start on a due track asks the agent to start the review" '[[ "$out" == *"periodic review of this track is due. Start the keep audit skill for app/main now"* ]]'
+out=$(printf '{"session_id":"a1","source":"resume"}' | CLAUDE_PROJECT_DIR="$A" "$H/hooks/load.sh")
+ok "but not again while it runs" '[[ "$out" != *"periodic review"* ]]'
+printf '{"session_id":"a1","tool_name":"Write","tool_input":{"file_path":"%s"}}' "$AK/app/main/review-2026-10-23.md" | CLAUDE_PROJECT_DIR="$A" "$H/hooks/track.sh"
+ok "writing the review file marks the review as handled" '[ -f "$AS/deep-app@main" ] && [ ! -f "$AS/deep-app@main.started" ] && [ ! -f "$AS/dirty-a1" ]'
 mkdir -p "$AK/app/big"
 printf '# Track: app/big\n\n**Read on start:**\n- `NOTES.md`\n\n**Rules for this track:**\n%s\n' "$(for i in $(seq 1 30); do echo "- rule number $i that keeps the context file near its size limit"; done)" > "$AK/app/big/CONTEXT.md"
 { printf '# State: app/big\n\n## Inbox\n- 2026-10-20 · app/main · a note · affects tickets\n\n## Current\n- [verified] work\n\n## Next step\n- go\n\n## Tickets\n'; for i in $(seq 1 60); do echo "- [ ] T-$i: a ticket with a title long enough to fill the file — acceptance: a test"; done; } > "$AK/app/big/STATE.md"
@@ -517,9 +532,24 @@ ms() { python3 -I -c 'import subprocess, sys, time; t = time.time(); subprocess.
 cold=$(ms bash "$H/scripts/audit.sh" "$A" app/big start); warm=$(ms bash "$H/scripts/audit.sh" "$A" app/big save)
 ok "a full check of a large track takes under 500 ms (${cold} ms)" '[ "$cold" -lt 500 ]'
 ok "an unchanged track is skipped in under 200 ms (${warm} ms)" '[ "$warm" -lt 200 ]'
+G2=$(mktemp -d "${TMPDIR:-/tmp}/keep-audit2.XXXXXX"); mkdir -p "$G2/.keep/app/main"
+printf '# State: app/main\n\n## Current\n- State as of today:\n  - [verified] the parser works\n\n## Next step\n- go\n' > "$G2/.keep/app/main/STATE.md"
+out=$(bash "$H/scripts/audit.sh" "$G2" app/main start)
+ok "the check creates keep's runtime folder with its git-ignore rule" '[ "$(cat "$G2/.keep/.state/.gitignore")" = "*" ]'
+ok "a heading-style Current bullet ending in a colon isn't counted as unmarked" '[ -z "$out" ]'
+D=$(mktemp -d "${TMPDIR:-/tmp}/keep-date.XXXXXX")
+printf '#!/bin/sh\n[ "$1" = "+%%Y-%%m-%%d" ] && { echo 2099-01-01; exit 0; }\nexec /bin/date "$@"\n' > "$D/date"; chmod +x "$D/date"
+before=$(head -1 "$G2/.keep/.state/audit-app@main"); PATH="$D:$PATH" bash "$H/scripts/audit.sh" "$G2" app/main start >/dev/null; after=$(head -1 "$G2/.keep/.state/audit-app@main")
+ok "a new day rescans an unchanged track, since the Inbox check depends on the date" '[ "$before" != "$after" ]'
+rm -rf "$G2" "$D"
+ok "skills that run keep's scripts say to run them exactly as written" '[ -z "$(grep -L "Run each command below exactly as written" "$H"/skills/{start,save,done,close,list,current,rename}/SKILL.md)" ]'
+ok "the start skill runs the check right after binding" 'grep -q "audit.sh\" \"\${CLAUDE_PROJECT_DIR}\" \"<feature>/<track>\" start" "$H/skills/start/SKILL.md"'
 rm -rf "$A"
 ok "the deep review runs in a separate, read-only context on Sonnet" 'grep -qx "context: fork" "$H/skills/audit/SKILL.md" && grep -qx "agent: keep:auditor" "$H/skills/audit/SKILL.md" && grep -qx "model: sonnet" "$H/agents/auditor.md" && grep -qx "tools: Read, Grep, Glob" "$H/agents/auditor.md"'
-ok "save and done start it only when it's due" '[ "$(grep -l "audit.sh\" \"\${CLAUDE_PROJECT_DIR}\" \"<feature>/<track>\" due" "$H"/skills/{save,done}/SKILL.md | wc -l | tr -d " ")" = 2 ]'
+ok "a chat start or a fresh binding starts the review when it's due" 'grep -q "periodic review of this track is due" "$H/hooks/load.sh" && grep -q "audit.sh\" \"\${CLAUDE_PROJECT_DIR}\" \"<feature>/<track>\" due" "$H/skills/start/SKILL.md"'
+ok "save and done no longer start it" '[ -z "$(grep -l "audit.sh.*due" "$H"/skills/{save,done}/SKILL.md)" ]'
+ok "the handled result goes to a review file, with an Inbox pointer when it has items" '[ "$(grep -l "Nothing needs the user" "$H/hooks/load.sh" "$H/skills/start/SKILL.md" "$H/skills/audit/SKILL.md" | wc -l | tr -d " ")" = 3 ]'
+ok "the start-of-chat text has no backticks, which bash would run as commands" '! grep -q "add \".*\`" "$H/hooks/load.sh"'
 
 echo "--- skill commands"
 ok "nothing refers to a custom keep folder anymore" '! grep -rq KEEP_FOLDER "$H"'

@@ -5,6 +5,8 @@ allowed-tools: Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/rename.sh" *) Bash(g
 ---
 If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat moves to another folder after it starts, use the nearest folder at or above the current one that has a `.keep/` wherever this says `${CLAUDE_PROJECT_DIR}`.
 
+Run each command below exactly as written, one per call, apart from that folder when it applies: keep pre-approves them in that form, so they run without permission prompts.
+
 Arguments: $ARGUMENTS
 
 1. Work out what to rename and the new name. "This track" means the one this chat is bound to: `cat "${CLAUDE_PROJECT_DIR}/.keep/.state/track-${CLAUDE_SESSION_ID}" 2>/dev/null`. A track's new name stays in its feature. If either is unclear, ask.

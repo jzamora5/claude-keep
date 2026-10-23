@@ -138,7 +138,11 @@ if [ -z "$worktree" ]; then
     add ""
     add "keep's check of this track:"
     add "$issues"
-    add "Fix the ones that only move or de-duplicate text, or fill in what's missing, in your first save. Mention the ones that need the user in your first reply."
+    add "Fix the ones that only move or de-duplicate text, or fill in what's missing, in your first save. Mention the ones that need the user once in this chat, at a natural pause, never before answering what they asked."
+  fi
+  if [ "$(bash "$here/../scripts/audit.sh" "$root" "$binding" due 2>/dev/null)" = due ]; then
+    add ""
+    add "keep's periodic review of this track is due. Start the keep audit skill for $binding now, without waiting for the user; it runs in the background on a cheaper model and reads only. When its list comes back, apply the items it marks lossless, write the other items to the track's review-<date>.md (or \"Nothing needs the user.\"; writing the file marks the review as handled) with an Inbox line pointing to it when it has items, commit the keep folder if it's its own git repo, and show the user the other items once, at a natural pause."
   fi
 fi
 emit "FEATURE.md" "$fdir/FEATURE.md" 2000

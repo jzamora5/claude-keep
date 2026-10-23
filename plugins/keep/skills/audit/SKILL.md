@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Review one keep track (the user may call a track a workspace) for repeated facts, contradicted or stale claims, unrecorded decisions and gaps a new chat would hit, and propose fixes. keep's save and done skills start it when a track is due; the user can also ask for it. It reads only and never edits.
+description: Review one keep track (the user may call a track a workspace) for repeated facts, contradicted or stale claims, unrecorded decisions and gaps a new chat would hit, and propose fixes. keep starts it on its own at the start of a chat on a track that's due; the user can also ask for it. It reads only and never edits.
 context: fork
 agent: keep:auditor
 ---
@@ -17,3 +17,4 @@ Track: $ARGUMENTS (as `<feature>/<track>`)
    - what a new chat would still miss: a vague Next step, a ticket without an acceptance check, an open question with no owner;
    - for a `NOTES.md` over 15 KB that's listed under "Read on start": a summary of at most about 1,500 bytes for the top of that file, with its text, so the track can load the summary instead of the whole file.
 3. Return at most 15 items, most useful first. For each: the file and section, what's wrong, the exact edit, and whether it's **lossless** (it only moves or de-duplicates text, or adds a summary, without changing what any line says) or **needs the user** (it drops, rewords or decides something). Don't edit any file.
+4. End with this line for the main chat: Next: apply the lossless items; write the others to the track's `review-<date>.md` (or "Nothing needs the user."; writing the file marks the review as handled), with an Inbox line pointing to it when it has items; commit the keep folder if it's its own git repo; show the user the others once, at a natural pause.

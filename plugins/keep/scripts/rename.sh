@@ -70,12 +70,15 @@ for m in "$st"/named-*; do
   fi
 done
 
+# The deep-review record moves too, so a renamed track isn't reviewed again just for its new name.
 if [ -n "$track" ]; then
   s=$(stamp_file "$keep" "$old")
   [ -f "$s" ] && mv "$s" "$(stamp_file "$keep" "$to")"
+  [ -f "$st/deep-$feature@$track" ] && mv "$st/deep-$feature@$track" "$st/deep-$feature@$new"
 else
-  for s in "$st/stamp-$old@"*; do
-    [ -f "$s" ] && mv "$s" "$st/stamp-$new@${s#*@}"
+  for s in "$st/stamp-$old@"* "$st/deep-$old@"*; do
+    [ -f "$s" ] || continue
+    case "$s" in */stamp-*) mv "$s" "$st/stamp-$new@${s#*@}" ;; *) mv "$s" "$st/deep-$new@${s#*@}" ;; esac
   done
 fi
 

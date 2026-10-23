@@ -48,5 +48,8 @@ A plugin installed from a local folder is read from that folder, so changes take
 | 24 | `/keep:start off` | The chat is unbound, renamed `demo/research (unbound)`, and isn't rebound after `/clear` |
 | 25 | In default permission mode, `/keep:start demo/tickets` | No permission prompt for keep's own scripts |
 | 26 | In a new chat, `/rename my-review`, then `/keep:start tickets`, then `/clear` and ask "which workspace is this?" | The chat keeps the name `my-review` throughout, and after `/clear` it's still on `demo/tickets` |
+| 27 | In a chat, `/keep:start tickets` on a track with an empty Next step | The agent fills in the Next step at its first save, or mentions it once, after answering |
+| 28 | `/keep:audit demo/tickets` in the app | A short list comes back in the chat, each item marked lossless or needing you. The lossless ones are applied; the rest are saved in `review-<date>.md` with an Inbox line, and nothing else changes until you agree |
+| 29 | Start a chat on a track whose notes grew by 10 KB | It starts the deep review in the background and keeps working; when the list comes back, lossless items are applied, the rest land in `review-<date>.md` with an Inbox line, and a new chat on the track doesn't start another review |
 
 Write down anything that differs, with the exact output.

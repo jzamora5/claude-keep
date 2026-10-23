@@ -2,9 +2,9 @@
 
 ## 0.9.0 · 2026-10-23
 
-- A quick check runs after every save and at every chat start. It flags a `STATE.md` over its size, an empty Next step, unmarked Current lines, tickets without an acceptance check, leftover placeholders, files listed to read that don't exist or are large, lines copied into both state and notes, and Inbox items older than two weeks. It skips tracks whose files haven't changed and raises each issue once. A full check of a large track takes about 0.2 seconds; an unchanged one, about 0.05.
-- The agent fixes what only moves, de-duplicates or fills in text in the same save, and asks about the rest.
-- `/keep:audit` reviews a track in the background on Sonnet, reading only: it proposes merges, contradictions to fix, decisions to record and a summary for large notes. `/keep:save` and `/keep:done` start it on their own when a track's notes grew by 10 KB or two weeks passed with changes.
+- A quick check runs after every save, at every chat start and right after a chat is bound. It flags a `STATE.md` over its size, an empty Next step, unmarked Current lines, tickets without an acceptance check, leftover placeholders, files listed to read that don't exist or are large, lines copied into both state and notes, and Inbox items older than two weeks. It skips tracks whose files haven't changed that day and raises each issue once. A full check of a large track takes about 0.2 seconds; an unchanged one, about 0.05.
+- The agent fixes what only moves, de-duplicates or fills in text in the same save, and asks about the rest once per chat, at a natural pause.
+- `/keep:audit` reviews a track in the background on Sonnet, reading only: it proposes merges, contradictions to fix, decisions to record and a summary for large notes. The next chat on a track starts it on its own when the track's notes grew by 10 KB or two weeks passed with changes. Its lossless items are applied; the rest are saved in the track's `review-<date>.md` with an Inbox pointer. A review counts as done only once that file is written, so a lost result is retried after an hour.
 
 ## 0.8.0 · 2026-10-22
 

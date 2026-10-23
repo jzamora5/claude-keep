@@ -55,6 +55,8 @@ case "$fp" in
 $issues
 Fix the ones that only move or de-duplicate text, or fill in what's missing, in this turn. Anything that drops or rewords content, ask the user about at the next natural pause." \
       '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $c}}' ;;
+  # Writing a review file means the deep review's result was handled, so the next one waits until it's due again.
+  "$tdir"/review-*.md) bash "$(dirname "$0")/../scripts/audit.sh" "$root" "$binding" reviewed 2>/dev/null ;;
   # Claude Code puts worktrees under .claude/worktrees/, so edits there are project edits.
   "$root"/.claude/worktrees/*) touch "$st/dirty-$sid" ;;
   # Claude's own files (settings, memory, plans) aren't project work.
