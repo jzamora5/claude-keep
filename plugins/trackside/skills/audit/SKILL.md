@@ -14,6 +14,7 @@ Track: $ARGUMENTS (as `<feature>/<track>`)
    - claims in `STATE.md` that the other files or the source docs contradict. Check only what you can confirm by reading; say "unverified" otherwise;
    - decisions mentioned in `STATE.md` or `NOTES.md` that aren't recorded where `FEATURE.md` says decisions go;
    - rules repeated in several tracks' `CONTEXT.md` that belong in `FEATURE.md`;
+   - Gotchas or lessons about a repo's own code or tooling that would help any chat in that repo, not only this track: propose moving each into that repo's `CLAUDE.md`, or the file the project's `CLAUDE.md` says holds that repo's commands and gotchas. Moving one into a repo always needs the user;
    - a kind that doesn't fit the work. If `CONTEXT.md` says each item starts clean: items that build on each other, where one needs another's details, which suggests the track shouldn't start clean; details of finished items still in `STATE.md`; lessons that repeat each other or `CONTEXT.md`. If it doesn't: a stream of separate items, such as unrelated pull request reviews, whose details pile up in `STATE.md`, which suggests each item should start clean. Changing the kind always needs the user;
    - what a new chat would still miss: a vague Next step, a ticket without an acceptance check, an open question with no owner;
    - for a `NOTES.md` over 15 KB that's listed under "Read on start": a summary of at most about 1,500 bytes for the top of that file, with its text, so the track can load the summary instead of the whole file.

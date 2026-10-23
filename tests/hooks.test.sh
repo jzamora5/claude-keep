@@ -668,6 +668,39 @@ out=$(bash "$H/scripts/rename.sh" "$C" rev/prs reviews)
 ok "renaming a clean track keeps its kind and renames its LESSONS.md header" '[ -f "$CK/rev/reviews/LESSONS.md" ] && head -1 "$CK/rev/reviews/LESSONS.md" | grep -qx "# Lessons: rev/reviews" && bash "$H/scripts/status.sh" "$C" | grep -q "^- rev/reviews (each item starts clean)"'
 rm -rf "$C"
 
+echo "--- pull request state"
+P=$(mktemp -d "${TMPDIR:-/tmp}/trackside-prs.XXXXXX"); PK="$P/.trackside"
+for r in api web; do mkdir -p "$P/$r"; q "$P/$r" init -b main; done
+mkdir -p "$PK/shop/tickets"
+printf '# Feature: shop\n\n**Repos:** api, web\n' > "$PK/shop/FEATURE.md"
+printf '# State: shop/tickets\n\n## Current\n- reviewing web #13 [verified]\n- api#14 waits on CI [assumed]\n\n## Done log\n- 2026-10-23 · T-1 · abc1234 · tests pass · api#12\n- 2026-10-22 · T-0 · def5678 · tests pass · api#11 (merged 2026-10-22)\n- 2026-10-21 · T-9 · see shop-api#16 and api#\n' > "$PK/shop/tickets/STATE.md"
+GB=$(mktemp -d "${TMPDIR:-/tmp}/trackside-gh.XXXXXX")
+printf '#!/bin/sh\necho "$*" >> "%s/calls"\ncase "$3" in 12) echo "MERGED 2026-10-24" ;; 13) echo "OPEN " ;; *) exit 1 ;; esac\n' "$GB" > "$GB/gh"; chmod +x "$GB/gh"
+out=$(PATH="$GB:$PATH" bash "$H/scripts/prs.sh" "$P" shop/tickets)
+ok "it reports the state of each pull request the state names as <repo>#<number>" '[ "$out" = "api#12: merged 2026-10-24
+web#13: open" ]'
+ok "it only reads, and skips lines already marked merged and names that aren't a listed repo" '! grep -qv "^pr view " "$GB/calls" && ! grep -qE "^pr view (11|16) " "$GB/calls" && grep -q "^pr view 14 " "$GB/calls"'
+for i in $(seq 1 12); do printf -- '- api#%s\n' "$((100 + i))"; done >> "$PK/shop/tickets/STATE.md"; rm -f "$GB/calls"
+PATH="$GB:$PATH" bash "$H/scripts/prs.sh" "$P" shop/tickets >/dev/null
+ok "it asks about at most 10 per run" '[ "$(wc -l < "$GB/calls" | tr -d " ")" = 10 ]'
+NG=$(mktemp -d "${TMPDIR:-/tmp}/trackside-nogh.XXXXXX")
+for c in dirname cat grep sort git awk sed tr head wc; do ln -s "$(command -v "$c")" "$NG/$c"; done
+out=$(PATH="$NG" /bin/bash "$H/scripts/prs.sh" "$P" shop/tickets; echo "exit=$?")
+ok "without gh it prints nothing and succeeds" '[ "$out" = "exit=0" ]'
+ok "next runs it, read-only, and done names the pull request in the Done-log line" 'grep -q "scripts/prs.sh" "$H/skills/next/SKILL.md" && grep -q "It only reads" "$H/skills/next/SKILL.md" && grep -q "add it to the ticket'"'"'s Done-log line as \`<repo>#<number>\`" "$H/skills/done/SKILL.md"'
+ok "done asks about moving repo lessons in the same request as the commit, not separately" 'grep -q "list each one in the same request" "$H/skills/done/SKILL.md" && grep -q "approving the commit approves those moves too" "$H/skills/done/SKILL.md"'
+rm -rf "$P" "$GB" "$NG"
+
+echo "--- each rule has one home"
+while IFS=$'\t' read -r phrase home copies why; do
+  case "$phrase" in ''|'#'*) continue ;; esac
+  [ "$copies" != - ] || copies=""
+  want=$(printf '%s\n' $home $copies | sort | tr '\n' ' ')
+  got=$(cd "$H" && grep -rlF -- "$phrase" hooks scripts skills agents templates | sort | tr '\n' ' ')
+  ok "\"$phrase\" is in $home${copies:+ and the copies listed}, nowhere else" '[ "$got" = "$want" ]'
+  [ "$got" = "$want" ] || printf '  found in: %s\n  listed:   %s\n' "$got" "$want"
+done < "$(dirname "$0")/rule-homes.tsv"
+
 echo "--- skill commands"
 ok "nothing refers to a custom trackside folder anymore" '! grep -rq TRACKSIDE_FOLDER "$H"'
 ok "skills run commands from the project root, not the working directory" '[ -z "$(grep -n "PWD" "$H"/skills/*/SKILL.md | grep -v "freshness.sh")" ]'

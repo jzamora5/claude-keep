@@ -14,7 +14,7 @@
 <!-- - [ ] <key>: <title> — acceptance: <test, command or observable result> -->
 
 ## Done log
-<!-- Newest first: date · ticket · commit(s) · how verified. Older lines move to NOTES.md. -->
+<!-- Newest first: date · ticket · commit(s) · how verified · pull request as <repo>#<number>. Older lines move to NOTES.md. -->
 
 ## Dead ends
 <!-- Approaches tried or rejected and why, and areas not to touch. -->

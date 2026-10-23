@@ -194,6 +194,15 @@ doc_index() {
   rm -r "${d:?}"
 }
 
+# repos_of <FEATURE.md>: the folders on its "Repos:" line, or "." for the project root.
+repos_of() {
+  local line
+  line=$(grep -m1 -iE '^[-*[:space:]]*(\*\*)?repos:' "$1" 2>/dev/null \
+    | sed -E 's/^[^:]*:[[:space:]]*(\*\*)?[[:space:]]*//; s/`//g')
+  [ -n "$line" ] || line="."
+  printf '%s\n' "$line" | tr ',' '\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s#/$##' | grep -v '^$'
+}
+
 # The stamp is local runtime state: it describes this machine's checkouts, so it stays out of git.
 stamp_file() { printf '%s/.state/stamp-%s@%s' "$1" "${2%%/*}" "${2#*/}"; }
 

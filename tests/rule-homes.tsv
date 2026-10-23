@@ -1,0 +1,18 @@
+# Rules trackside states in more than one file, or must keep in one. tests/hooks.test.sh fails when a rule's phrase
+# shows up in a file not listed here, or is missing from one that is. Columns, separated by tabs: the phrase, the
+# file that is its home, the files allowed to repeat it, and why they repeat it. Paths are relative to
+# plugins/trackside/; only hooks, scripts, skills, agents and templates are checked.
+only move or de-duplicate text	hooks/track.sh	hooks/load.sh skills/start/SKILL.md skills/save/SKILL.md skills/done/SKILL.md	the check reports at chat start, after a save, after binding and in save and done; hooks and skills load separately, so each place that shows issues says how to handle them
+marks the review as handled	skills/audit/SKILL.md	hooks/load.sh skills/start/SKILL.md	the review starts from the reload or from binding, which don't load the audit skill
+bookkeeping out of	hooks/load.sh	skills/start/SKILL.md	a chat bound mid-session sees the start skill, not the reload
+source of truth	hooks/load.sh	skills/start/SKILL.md	a chat bound mid-session sees the start skill, not the reload
+each decision as soon as	hooks/load.sh	skills/start/SKILL.md	a chat bound mid-session sees the start skill, not the reload
+couldn't get from the code	skills/save/SKILL.md	hooks/load.sh skills/start/SKILL.md	saves the hooks ask for don't load the save skill
+would help any chat in that repo	skills/done/SKILL.md	skills/close/SKILL.md skills/audit/SKILL.md	finishing a ticket, closing a track and the deep review each meet these lessons
+<repo>#<number>	scripts/prs.sh	skills/done/SKILL.md skills/next/SKILL.md templates/STATE.md	the script reads the format; done writes it, next acts on it, the template shows it
+5,000	scripts/audit.sh	skills/save/SKILL.md	the check enforces the limit; save keeps under it
+Nothing is deleted	templates/LESSONS.md	-	done and save point to LESSONS.md for how an item finishes
+Type /clear, then say next	skills/done/SKILL.md	-	-
+may call a track a workspace	hooks/load.sh	skills/audit/SKILL.md skills/close/SKILL.md skills/current/SKILL.md skills/done/SKILL.md skills/list/SKILL.md skills/next/SKILL.md skills/rename/SKILL.md skills/save/SKILL.md skills/start/SKILL.md	each skill's description has to match the word on its own
+Run each command below exactly as written	skills/start/SKILL.md	skills/close/SKILL.md skills/current/SKILL.md skills/done/SKILL.md skills/list/SKILL.md skills/next/SKILL.md skills/rename/SKILL.md skills/save/SKILL.md	every skill that runs trackside's scripts loads on its own
+which happens when a chat moves	skills/start/SKILL.md	skills/audit/SKILL.md skills/close/SKILL.md skills/current/SKILL.md skills/digest/SKILL.md skills/done/SKILL.md skills/list/SKILL.md skills/next/SKILL.md skills/rename/SKILL.md skills/save/SKILL.md	every skill loads on its own

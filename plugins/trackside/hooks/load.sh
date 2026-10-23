@@ -118,7 +118,7 @@ fdir="$keep/${binding%%/*}"
 tdir="$keep/$binding"
 add "Active track: $binding (a new chat starts it with /trackside:start $binding). Its files: $(rel "$fdir")/FEATURE.md, plus CONTEXT.md, STATE.md and NOTES.md in $(rel "$tdir")/."
 add "The user may call a track a workspace; /trackside:current shows this one."
-add "STATE.md is the handoff for the next chat and must stay current. Record each decision as soon as it's made, with the options rejected and why, where FEATURE.md says decisions go."
+add "STATE.md is the handoff for the next chat and must stay current. Record each decision as soon as it's made, with the options rejected and why, where FEATURE.md says decisions go. Write down only what a new chat couldn't get from the code, git, the docs or a command: no copied file contents, diffs or test output; point to them instead."
 add "Keep trackside's bookkeeping out of your replies: update STATE.md before you write a reply, not after it, and don't tell the user about saves, fixes the automatic check asked for, or commits of the trackside folder. Mention trackside only when the user has to decide something, in a line before the rest of your reply, never after a question you ask."
 [ -z "$(source_docs "$keep" "${binding%%/*}")" ] || add "The source docs FEATURE.md lists are the source of truth: before you state, decide or change anything they cover, ask the doc-expert subagent (pass it their paths and where decisions go) instead of trusting what STATE.md says, and cite what you use by ID (such as AD-28) or heading."
 if starts_clean "$keep" "$binding"; then

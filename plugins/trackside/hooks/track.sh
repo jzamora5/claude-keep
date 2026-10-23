@@ -28,15 +28,6 @@ case "$(field .tool_name)" in
     exit 0 ;;
 esac
 
-# repos_of <FEATURE.md>: the folders on its "Repos:" line, or "." for the project root.
-repos_of() {
-  local line
-  line=$(grep -m1 -iE '^[-*[:space:]]*(\*\*)?repos:' "$1" 2>/dev/null \
-    | sed -E 's/^[^:]*:[[:space:]]*(\*\*)?[[:space:]]*//; s/`//g')
-  [ -n "$line" ] || line="."
-  printf '%s\n' "$line" | tr ',' '\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s#/$##' | grep -v '^$'
-}
-
 write_stamp() {
   local stamp tmp r dir
   stamp=$(stamp_file "$keep" "$binding")

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.16.0 · 2026-10-23
+
+Ideas from an earlier plugin with the old name, lackeyjb/claude-keep:
+
+- `/trackside:done` lists each lesson that's about a repo's own code or tooling and would help any chat in that repo, with the repo's `CLAUDE.md` (or the project's rules file for that repo) it would move to, in the same request as the commit: approving the commit approves the moves. `/trackside:close` offers the same destination in its one list, and the periodic review flags such lessons still in a track.
+- A save writes down only what a new chat couldn't get from the code, git, the docs or a command, and points to file contents, diffs and test output instead of copying them.
+- Done-log lines name their pull request as `<repo>#<number>`. `scripts/prs.sh` reads each one's state with `gh pr view` in that repo's folder, at most 10 per run, and prints nothing without `gh`. `/trackside:next` runs it and marks merged and closed pull requests in the state, without mentioning it. Hooks still make no network calls.
+- `tests/rule-homes.tsv` lists each rule stated in more than one file, with the file that is its home and why each copy exists. The hook tests fail when a rule's phrase shows up anywhere else, or goes missing from a listed file.
+
 ## 0.15.0 · 2026-10-23
 
 **Breaking:** keep is now **trackside**. Two other Claude Code plugins are named `keep`, and when two enabled plugins share a name, Claude Code runs the hooks of only one of them, so the reload, the save reminder and the stamps could silently stop.
