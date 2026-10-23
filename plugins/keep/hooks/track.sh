@@ -9,9 +9,9 @@ tdir="$keep/$binding"
 case "$(field .tool_name)" in
   WebFetch|WebSearch) touch "$st/dirty-$sid"; exit 0 ;;
   Agent)
-    # keep's doc-expert only reads the feature's own source docs, so asking it isn't new research.
+    # keep's doc-expert and auditor only read the feature's own files, so asking them isn't new research.
     case "$(field .tool_input.subagent_type)" in
-      keep:doc-expert|doc-expert) ;;
+      keep:doc-expert|doc-expert|keep:auditor|auditor) ;;
       *) touch "$st/dirty-$sid" ;;
     esac
     exit 0 ;;
@@ -49,7 +49,12 @@ case "$fp" in
     rm -f "$st/dirty-$sid"
     touch "$st/saved-$sid"
     write_stamp
-    bash "$(dirname "$0")/../scripts/index.sh" "$root" 2>/dev/null ;;
+    bash "$(dirname "$0")/../scripts/index.sh" "$root" 2>/dev/null
+    issues=$(bash "$(dirname "$0")/../scripts/audit.sh" "$root" "$binding" save 2>/dev/null)
+    [ -z "$issues" ] || jq -n --arg c "keep's check of $binding after this save:
+$issues
+Fix the ones that only move or de-duplicate text, or fill in what's missing, in this turn. Anything that drops or rewords content, ask the user about at the next natural pause." \
+      '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $c}}' ;;
   # Claude Code puts worktrees under .claude/worktrees/, so edits there are project edits.
   "$root"/.claude/worktrees/*) touch "$st/dirty-$sid" ;;
   # Claude's own files (settings, memory, plans) aren't project work.

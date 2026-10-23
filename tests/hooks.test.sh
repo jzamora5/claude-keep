@@ -456,6 +456,71 @@ for a in "store/nope x" "store/build research" "store/build off" "store/build ..
 done
 rm -rf "$N"
 
+echo "--- the automatic check"
+A=$(mktemp -d "${TMPDIR:-/tmp}/keep-audit.XXXXXX"); AK="$A/.keep"; AS="$AK/.state"
+mkdir -p "$AK/app/main" "$AS"
+printf '# Feature: app\n\n**Goal:** an app\n' > "$AK/app/FEATURE.md"
+printf '# Track: app/main\n\n**Goal:** build it\n' > "$AK/app/main/CONTEXT.md"
+printf '# State: app/main\n\n## Inbox\n\n## Current\n- [verified] the parser works\n\n## Next step\n- edit src/parse.js parse()\n\n## Tickets\n- [ ] T-2: handle errors — acceptance: npm test passes\n' > "$AK/app/main/STATE.md"
+printf '# Notes: app/main\n' > "$AK/app/main/NOTES.md"
+au() { bash "$H/scripts/audit.sh" "$A" "${2:-app/main}" "$1"; }
+out=$(au start);                                       ok "a clean track has nothing to report" '[ -z "$out" ]'
+dup="- 2026-10-01 · T-1 · abc123 · this exact line is long enough to count as a duplicate"
+{ printf '# State: app/main\n\n## Inbox\n- 2020-01-01 · app/other · old news · affects tickets\n\n## Current\n- working on the importer\n- [assumed] marked line\n\n## Next step\n\n## Tickets\n- [ ] T-3: no check here\n- [ ] T-2: handle errors — acceptance: npm test passes\n\n## Done log\n%s\n\n## Gotchas\n- %s\n' "$dup" "$(head -c 5000 < /dev/zero | tr '\0' 'g')"; } > "$AK/app/main/STATE.md"
+{ printf '# Notes: app/main\n%s\n' "$dup"; head -c 16000 < /dev/zero | tr '\0' 'n'; printf '\n'; } > "$AK/app/main/NOTES.md"
+printf '# Track: app/main\n\n**Read on start:**\n- `NOTES.md`\n- `docs/missing.md`\n\n**Rules for this track:**\n- <anything specific to this line of work>\n' > "$AK/app/main/CONTEXT.md"
+out=$(au start)
+ok "it flags a STATE.md over 5,000 bytes" '[[ "$out" == *"STATE.md is "*" bytes, over 5,000"* ]]'
+ok "an empty Next step" '[[ "$out" == *"Next step is empty"* ]]'
+ok "unmarked Current lines" '[[ "$out" == *"1 Current line(s) are not marked"* ]]'
+ok "tickets without an acceptance check" '[[ "$out" == *"1 open ticket(s) in STATE.md have no acceptance check"* ]]'
+ok "leftover template placeholders" '[[ "$out" == *"1 template placeholder line(s)"* ]]'
+ok "files listed to read that don't exist" '[[ "$out" == *"names files that do not exist: docs/missing.md."* ]]'
+ok "large files read at every start" '[[ "$out" == *"Read at every start but large: NOTES.md (15 KB)"* ]]'
+ok "lines copied into both STATE.md and NOTES.md" '[[ "$out" == *"1 line(s) appear word for word in both STATE.md and NOTES.md"* ]]'
+ok "and Inbox items older than two weeks" '[[ "$out" == *"1 Inbox item(s) are older than two weeks"* ]]'
+out=$(au save);                                        ok "an unchanged track is skipped" '[ -z "$out" ]'
+printf -- '- another gotcha\n' >> "$AK/app/main/STATE.md"
+out=$(au save);                                        ok "a change that adds no new issue reports nothing" '[ -z "$out" ]'
+sed 's/^## Next step$/## Next step\n- run npm test/' "$AK/app/main/STATE.md" > "$A/s" && mv "$A/s" "$AK/app/main/STATE.md"
+out=$(au save);                                        ok "(setup) the fixed issue is dropped" '[ -z "$out" ] && ! grep -qx next-step "$AS/audit-app@main.told"'
+sed '/^- run npm test$/d' "$AK/app/main/STATE.md" > "$A/s" && mv "$A/s" "$AK/app/main/STATE.md"
+out=$(au save);                                        ok "an issue that comes back is reported again, alone" '[ "$out" = "- Next step is empty: write one concrete action (the file and function to touch, or the command to run)." ]'
+out=$(au start);                                       ok "a chat start reports every open issue again" '[ "$(printf "%s\n" "$out" | wc -l | tr -d " ")" = 9 ]'
+out=$(au due);                                         ok "a track never reviewed with notes over 10 KB is due" '[ "$out" = due ]'
+out=$(au due);                                         ok "then not again right away" '[ -z "$out" ]'
+head -c 11000 < /dev/zero | tr '\0' 'm' >> "$AK/app/main/NOTES.md"
+out=$(au due);                                         ok "notes that grew by 10 KB make it due again" '[ "$out" = due ]'
+read -r _ size fp < "$AS/deep-app@main"; printf '%s %s %s\n' "$(( $(date +%s) - 1300000 ))" "$size" "$fp" > "$AS/deep-app@main"
+out=$(au due);                                         ok "two weeks without changes isn't enough" '[ -z "$out" ]'
+read -r _ size fp < "$AS/deep-app@main"; printf '%s %s %s\n' "$(( $(date +%s) - 1300000 ))" "$size" "old" > "$AS/deep-app@main"
+out=$(au due);                                         ok "two weeks with changes is" '[ "$out" = due ]'
+mkdir -p "$AK/app/small"; cp "$AK/app/FEATURE.md" "$AK/app/small/NOTES.md"
+printf '# State: app/small\n\n## Current\n- [verified] fine\n\n## Next step\n- ship it\n' > "$AK/app/small/STATE.md"
+out=$(au due app/small);                               ok "a small track isn't due, and starts its two-week clock" '[ -z "$out" ] && [ -f "$AS/deep-app@small" ]'
+rm -f "$AS"/audit-app@main*
+printf 'app/main\n' > "$AS/track-a1"; printf 'app/small\n' > "$AS/track-a2"
+ae() { printf '{"session_id":"%s","tool_name":"Edit","tool_input":{"file_path":"%s"}}' "$1" "$AK/$2/STATE.md" | CLAUDE_PROJECT_DIR="$A" "$H/hooks/track.sh"; }
+out=$(ae a1 app/main)
+ok "saving STATE.md tells the agent what to fix, in the same turn" '[ "$(jq -r .hookSpecificOutput.hookEventName <<<"$out")" = PostToolUse ] && [[ "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" == *"keep'"'"'s check of app/main after this save:"*"Next step is empty"*"Fix the ones that only move or de-duplicate text"* ]]'
+out=$(ae a1 app/main);                                 ok "but only once" '[ -z "$out" ]'
+out=$(ae a2 app/small);                                ok "a clean track's save adds nothing" '[ -z "$out" ]'
+out=$(printf '{"session_id":"a1","source":"resume"}' | CLAUDE_PROJECT_DIR="$A" "$H/hooks/load.sh")
+ok "a chat start lists the open issues for the agent" '[[ "$out" == *"keep'"'"'s check of this track:"*"Next step is empty"* ]]'
+out=$(printf '{"session_id":"a2","source":"resume"}' | CLAUDE_PROJECT_DIR="$A" "$H/hooks/load.sh")
+ok "and says nothing for a clean track" '[[ "$out" != *"keep'"'"'s check"* ]]'
+mkdir -p "$AK/app/big"
+printf '# Track: app/big\n\n**Read on start:**\n- `NOTES.md`\n\n**Rules for this track:**\n%s\n' "$(for i in $(seq 1 30); do echo "- rule number $i that keeps the context file near its size limit"; done)" > "$AK/app/big/CONTEXT.md"
+{ printf '# State: app/big\n\n## Inbox\n- 2026-10-20 · app/main · a note · affects tickets\n\n## Current\n- [verified] work\n\n## Next step\n- go\n\n## Tickets\n'; for i in $(seq 1 60); do echo "- [ ] T-$i: a ticket with a title long enough to fill the file — acceptance: a test"; done; } > "$AK/app/big/STATE.md"
+for i in $(seq 1 500); do echo "- a reference note line number $i with some words in it"; done > "$AK/app/big/NOTES.md"
+ms() { python3 -I -c 'import subprocess, sys, time; t = time.time(); subprocess.run(sys.argv[1:], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); print(int((time.time() - t) * 1000))' "$@"; }
+cold=$(ms bash "$H/scripts/audit.sh" "$A" app/big start); warm=$(ms bash "$H/scripts/audit.sh" "$A" app/big save)
+ok "a full check of a large track takes under 500 ms (${cold} ms)" '[ "$cold" -lt 500 ]'
+ok "an unchanged track is skipped in under 200 ms (${warm} ms)" '[ "$warm" -lt 200 ]'
+rm -rf "$A"
+ok "the deep review runs in a separate, read-only context on Sonnet" 'grep -qx "context: fork" "$H/skills/audit/SKILL.md" && grep -qx "agent: keep:auditor" "$H/skills/audit/SKILL.md" && grep -qx "model: sonnet" "$H/agents/auditor.md" && grep -qx "tools: Read, Grep, Glob" "$H/agents/auditor.md"'
+ok "save and done start it only when it's due" '[ "$(grep -l "audit.sh\" \"\${CLAUDE_PROJECT_DIR}\" \"<feature>/<track>\" due" "$H"/skills/{save,done}/SKILL.md | wc -l | tr -d " ")" = 2 ]'
+
 echo "--- skill commands"
 ok "nothing refers to a custom keep folder anymore" '! grep -rq KEEP_FOLDER "$H"'
 ok "skills run commands from the project root, not the working directory" '[ -z "$(grep -n "PWD" "$H"/skills/*/SKILL.md | grep -v "freshness.sh")" ]'

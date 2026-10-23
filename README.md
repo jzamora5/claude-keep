@@ -28,6 +28,13 @@ Everything is plain Markdown in your project, and the hooks make no network or m
 - **Stays under the limit.** Hook output over 10,000 characters reaches Claude only as a short preview, so the reload always includes the Inbox, Current and Next step, adds whole sections while they fit, and names the ones it left out.
 - **Decisions.** Each decision is recorded when it's made, with the options it rejected and why, so a later chat doesn't propose them again. The save reminder asks for any decision not recorded yet.
 - **You always know what exists.** `.keep/INDEX.md` is regenerated at every chat start and every state save: each track, its current work (or its goal when nothing is in flight), its last update and the command to start it. A new track is proposed in one message, with its name, its goal and, for a new feature, the repos and settings the agent found; nothing is created until you confirm or correct it.
+- **Kept tidy on its own.** After every save and at every chat start, a quick check flags what would trip up a new chat:
+  - `STATE.md` over its size, an empty Next step, unmarked Current lines, and tickets without an acceptance check;
+  - leftover template placeholders, and files listed to read that don't exist or are large;
+  - lines copied into both state and notes, and Inbox items older than two weeks.
+
+  The check is a few text scans of small files, skipped when nothing changed, and each issue is raised once. The agent fixes what only moves, de-duplicates or fills in text in the same save, and asks you about the rest.
+- **A deep review when a track is due.** When a track's notes grow by 10 KB, or two weeks pass with changes, saving or finishing a ticket starts `/keep:audit` in the background on Sonnet. It reads the track and your saved memory notes for this project, then proposes merges, contradictions to fix, decisions to record, and a short summary to load instead of large notes. Lossless edits are applied without asking; the rest waits for you.
 - **Cleanup is one command.** `/keep:close` hands off what's still open, then moves the track or feature into `.keep/_archive/` and unbinds its chats; the track's own files are never deleted. Tracks untouched for 14 days are flagged as idle, and runtime files of old sessions are cleared after 30 days.
 
 ## What the gate covers
@@ -50,6 +57,7 @@ You only need `/keep:start`, or just say what you want to work on. The agent bri
 | `/keep:done` | Verifies the ticket and updates the feature's docs; after your approval, commits and marks the ticket done in the state. A failed check stops it |
 | `/keep:save` | Saves the state for the next chat, before `/clear` or when stopping. In a chat that isn't bound yet, it asks which track first |
 | `/keep:rename <feature>[/<track>] <new name>` | Renames a track within its feature, or a whole feature. Its chats stay bound, and the ones named after the track get the new name at their next message; other files that mention the old name are listed for you to decide. The agent runs it too when you ask |
+| `/keep:audit <feature>/<track>` | Runs the deep review of a track now. keep starts it on its own when a track is due |
 | `/keep:close <feature>[/<track>]` | Hands off what's still open, then archives the track or the whole feature. The agent runs it too when you ask it to close one |
 | `/keep:digest <feature>` | Builds a 1–2 page digest of the feature's source docs in a separate context |
 
@@ -116,7 +124,7 @@ keep's skills run their own scripts without asking. Saving STATE.md outside a sk
 
 ## Status
 
-Version 0.8.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2, and ten behaviors are checked in real headless sessions with `claude plugin eval` (`bash tests/evals.sh`, cases in `plugins/keep/evals/`). `tests/live-checklist.md` lists the checks that still need a person: several messages in a row, `/clear`, resume, compaction and the app's permission prompts.
+Version 0.9.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2, and ten behaviors are checked in real headless sessions with `claude plugin eval` (`bash tests/evals.sh`, cases in `plugins/keep/evals/`). `tests/live-checklist.md` lists the checks that still need a person: several messages in a row, `/clear`, resume, compaction and the app's permission prompts.
 
 ## Credits
 

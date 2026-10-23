@@ -132,6 +132,15 @@ fi
 
 add ""
 add "$(bash "$here/../scripts/freshness.sh" "$root" "$binding" "$(field .cwd)" 2>/dev/null | head -n 25)"
+if [ -z "$worktree" ]; then
+  issues=$(bash "$here/../scripts/audit.sh" "$root" "$binding" start 2>/dev/null)
+  if [ -n "$issues" ]; then
+    add ""
+    add "keep's check of this track:"
+    add "$issues"
+    add "Fix the ones that only move or de-duplicate text, or fill in what's missing, in your first save. Mention the ones that need the user in your first reply."
+  fi
+fi
 emit "FEATURE.md" "$fdir/FEATURE.md" 2000
 emit "CONTEXT.md" "$tdir/CONTEXT.md" 2600
 emit "STATE.md" "$tdir/STATE.md" $(( budget - $(bytes "$out") - 200 )) "Inbox" "Current" "Next step"

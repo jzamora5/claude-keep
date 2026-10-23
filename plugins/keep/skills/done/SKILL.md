@@ -1,7 +1,7 @@
 ---
 name: done
 description: In a chat bound to a keep track (the user may call a track a workspace), verify the current ticket, update the feature's docs and the track's STATE.md, summarize for review, and commit only after approval.
-allowed-tools: Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" add *) Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" commit *)
+allowed-tools: Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/audit.sh" *) Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" add *) Bash(git -C "${CLAUDE_PROJECT_DIR}/.keep" commit *)
 ---
 If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat moves to another folder after it starts, use the nearest folder at or above the current one that has a `.keep/` wherever this says `${CLAUDE_PROJECT_DIR}`.
 
@@ -14,5 +14,7 @@ If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat mov
 5. Ask for approval to commit, and wait. If the user wants changes instead, make them and start again from step 1.
 6. Only after approval, commit in each repo in its own style (check its `git log`). Then update the track's STATE.md in `${CLAUDE_PROJECT_DIR}/.keep/<feature>/<track>/`: check off the ticket, add a Done-log line (date · ticket · commit hashes · how verified), clear Current, and add Dead ends and Gotchas. Until then, the ticket stays open in STATE.md.
 7. Pushing and opening a pull request need a separate go-ahead. If the feature plans with OpenSpec, archive the change once it's merged.
-8. If the keep folder is its own git repo, commit it: `git -C "${CLAUDE_PROJECT_DIR}/.keep" add -A && git -C "${CLAUDE_PROJECT_DIR}/.keep" commit -m "<feature>/<track>: <ticket> done"`.
-9. End with: "Type /clear, then say next."
+8. If keep's check listed issues for this track in this chat, fix now the ones that only move or de-duplicate text or fill in what's missing, and list the others for the user in your reply. If it listed none, skip this.
+9. If the keep folder is its own git repo, commit it: `git -C "${CLAUDE_PROJECT_DIR}/.keep" add -A && git -C "${CLAUDE_PROJECT_DIR}/.keep" commit -m "<feature>/<track>: <ticket> done"`.
+10. Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/audit.sh" "${CLAUDE_PROJECT_DIR}" "<feature>/<track>" due`. If it prints `due`, start the keep audit skill for this track; it runs in the background on a cheaper model. When its list comes back, apply the items it marks lossless, commit the keep folder if it's its own git repo, and show the other items to the user in one message.
+11. End with: "Type /clear, then say next."
