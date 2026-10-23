@@ -37,15 +37,27 @@ content_fingerprint() {
 fingerprint() { { date +%Y-%m-%d; cat "$0"; content_fingerprint; } | cksum | tr ' ' '-'; }
 epoch() { date -j -f %Y-%m-%d "$1" +%s 2>/dev/null || date -d "$1" +%s 2>/dev/null; }
 
-# Limits match what a reload keeps whole; fixes aim well under them so a file doesn't flip back every save.
+# fits <reload part> <file> <key> <how to fix>: flags the file when that part of the reload would leave some of it out.
+# Fixes aim about 1,000 bytes under, so a file doesn't flip back every save.
+fits() {
+  local r left
+  r=$(rel "$2")
+  case "$1" in *"Read $r for them."*|*"read $r for the rest."*|*"read $r in full."*) ;; *) return 0 ;; esac
+  left=$(printf '%s\n' "$1" | sed -n "s|^\[Not loaded, to stay under the hook output limit: \(.*\)\. Read $r for them\.\]\$|\1|p")
+  printf '%s\t%s is %s bytes, more than the reload loads whole%s: %s until it is about 1,000 bytes smaller.\n' \
+    "$3" "${2##*/}" "$(size "$2")" "${left:+ (it would leave out $left)}" "$4"
+}
+
 checks() {
-  local s n missing big p path day now docs defined gone
-  s=$(size "$state")
-  [ "$s" -gt 5000 ] && printf 'state-size\tSTATE.md is %s bytes, over 5,000: move the oldest Done-log lines and settled Gotchas to NOTES.md until it is about 4,000.\n' "$s"
-  s=$(size "$context")
-  [ "$s" -gt 2600 ] && printf 'context-size\tCONTEXT.md is %s bytes, more than a reload keeps whole (2,600): move reference lists to NOTES.md.\n' "$s"
-  s=$(size "$feature")
-  [ "$s" -gt 2000 ] && printf 'feature-size\tFEATURE.md is %s bytes, over 2,000: move detail into the tracks or a source doc.\n' "$s"
+  local s n missing big p path day now docs defined gone part
+  # The reload has no fixed size limits: STATE.md, with LESSONS.md on a clean track, gets a hook output of its own,
+  # and FEATURE.md and CONTEXT.md share the other with trackside's messages, which take up to about 3,500 bytes.
+  part=$(reload_state "$keep" "$track")
+  fits "$part" "$state" state-fit "move the oldest Done-log lines and settled Gotchas to NOTES.md"
+  [ ! -f "$lessons" ] || fits "$part" "$lessons" lessons-fit "merge or replace lessons rather than adding more"
+  part=$(reload_files "$keep" "$track" $(( reload_budget - 3500 )))
+  fits "$part" "$feature" feature-fit "move detail into the tracks or a source doc"
+  fits "$part" "$context" context-fit "move reference lists to NOTES.md"
   [ -n "$(section_line "$state" "Next step")" ] || printf 'next-step\tNext step is empty: write one concrete action (the file and function to touch, or the command to run).\n'
   n=$(section "$state" Current | grep -E '^[[:space:]]*[-*] ' | grep -v 'Ticket: none' | grep -vE ':[[:space:]]*$' | grep -cvE '\[(verified|assumed)\]')
   [ "$n" -gt 0 ] && printf 'unmarked\t%s Current line(s) are not marked [verified] or [assumed].\n' "$n"
@@ -102,8 +114,6 @@ checks() {
     printf 'lessons-missing\tEach item on this track starts clean, but it has no LESSONS.md: create it from trackside'"'"'s templates/LESSONS.md.\n'
     return 0
   fi
-  s=$(size "$lessons")
-  [ "$s" -gt 4000 ] && printf 'lessons-size\tLESSONS.md is %s bytes, over 4,000: merge or replace lessons rather than adding more.\n' "$s"
   # stale_lines <section> <days>: how many lines in that section of LESSONS.md have no date, or a last date
   # older than <days>.
   stale_lines() {

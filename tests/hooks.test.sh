@@ -10,7 +10,7 @@ K="$R/.trackside"
 st="$K/.state"
 pass=0; fail=0
 ok() { if eval "$2"; then pass=$((pass + 1)); echo "PASS $1"; else fail=$((fail + 1)); echo "FAIL $1"; fi; }
-hook() { printf '%s' "$2" | "$H/hooks/$1.sh"; }
+hook() { printf '%s' "$2" | "$H/hooks/$1.sh"; [ "$1" != load ] || printf '%s' "$2" | "$H/hooks/load-state.sh"; }
 q() { git -C "$1" "${@:2}" >/dev/null 2>&1; }
 
 # A project with two repos and two features: "shop" (two tracks) and "solo" (one track).
@@ -277,21 +277,41 @@ done
 echo "--- size limits"
 { state shop/tickets "T-8 big" "edit web/app.js render"; for i in $(seq 1 120); do echo "- 2026-10-$((i % 28 + 1)) · T-$i · abc$i · tests passed, with a long note to fill space"; done; printf '\n## Gotchas\n- small gotcha\n'; } > "$K/shop/tickets/STATE.md"
 out=$(hook load '{"session_id":"s1","source":"resume"}')
-n=$(printf '%s' "$out" | wc -c | tr -d ' ')
+n=$(hook load-state '{"session_id":"s1","source":"resume"}' | wc -c | tr -d ' ')
 ok "a big state keeps Inbox, Current and Next step" '[[ "$out" == *"## Inbox"* && "$out" == *"T-8 big"* && "$out" == *"edit web/app.js render"* ]]'
 ok "the sections left out are named" '[[ "$out" == *"Not loaded, to stay under the hook output limit: Done log"* ]]'
 ok "sections that fit still load" '[[ "$out" == *"small gotcha"* ]]'
-ok "the output stays under 10,000 bytes ($n)" '[ "$n" -lt 10000 ]'
+ok "STATE.md's own output stays under 10,000 bytes ($n)" '[ "$n" -lt 10000 ]'
+n=$(printf '{"session_id":"s1","source":"resume"}' | "$H/hooks/load.sh" | wc -c | tr -d ' ')
+ok "and so does the other one ($n)" '[ "$n" -lt 10000 ]'
 ok "the output is valid UTF-8" 'printf "%s" "$out" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1'
 { printf '# State: shop/tickets\n\n## Current\n'; for i in $(seq 1 400); do echo "- [assumed] a very long current line number $i that keeps going — with · marks"; done; } > "$K/shop/tickets/STATE.md"
-out=$(hook load '{"session_id":"s1","source":"resume"}')
+out=$(hook load-state '{"session_id":"s1","source":"resume"}')
 n=$(printf '%s' "$out" | wc -c | tr -d ' ')
 ok "even an oversized Current is cut under 10,000 bytes ($n)" '[ "$n" -lt 10000 ] && [[ "$out" == *"[Cut to stay under the hook output limit"* ]]'
 ok "the cut falls at a line end, so no character is split" 'printf "%s" "$out" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1'
-printf '# Track: shop/tickets\n**Goal:** ship tickets\n%s\n**Rules for this track:**\n- the last rule\n' "$(head -c 2200 < /dev/zero | tr '\0' 'x')" > "$K/shop/tickets/CONTEXT.md"
+printf '# Track: shop/tickets\n**Goal:** ship tickets\n%s\n**Rules for this track:**\n- the last rule\n' "$(head -c 4800 < /dev/zero | tr '\0' 'x')" > "$K/shop/tickets/CONTEXT.md"
 out=$(hook load '{"session_id":"s1","source":"resume"}')
-ok "a CONTEXT.md up to about 2,500 bytes loads whole, rules included" '[[ "$out" == *"- the last rule"* ]]'
+ok "with no fixed size limit, a 5,000-byte CONTEXT.md loads whole, rules included" '[[ "$out" == *"- the last rule"* ]]'
 printf '# Track: shop/tickets\n**Goal:** ship tickets\n' > "$K/shop/tickets/CONTEXT.md"
+cp "$K/shop/tickets/STATE.md" "$st/state-backup"
+ok "the reload is two SessionStart hooks, so STATE.md has an output of its own" '[ "$(jq -r ".hooks.SessionStart[0].hooks[].command" "$H/hooks/hooks.json" | tr "\n" " ")" = "\${CLAUDE_PLUGIN_ROOT}/hooks/load.sh \${CLAUDE_PLUGIN_ROOT}/hooks/load-state.sh " ]'
+one=$(printf '{"session_id":"s1","source":"resume"}' | "$H/hooks/load.sh"); two=$(hook load-state '{"session_id":"s1","source":"resume"}')
+ok "load.sh carries FEATURE.md and CONTEXT.md, and load-state.sh STATE.md" '[[ "$one" == *"=== FEATURE.md"* && "$one" == *"=== CONTEXT.md"* && "$one" != *"=== STATE.md"* && "$two" == *"=== STATE.md"* && "$two" == "The state of shop/tickets"* ]]'
+out=$(hook load-state '{"session_id":"nobody-v9","source":"startup"}')
+ok "the state hook says nothing in a chat that isn't bound" '[ -z "$out" ]'
+out=$(hook load-state '{"session_id":"cleared-v9","source":"clear","session_title":"shop/research"}')
+ok "after /clear it finds the track from the chat's title without waiting for load.sh, which runs beside it" '[[ "$out" == *"=== STATE.md (.trackside/shop/research/STATE.md)"* ]] && [ ! -f "$st/track-cleared-v9" ]'
+{ state shop/tickets "T-9 roomy" "edit api/cart.js totals"; for i in $(seq 1 90); do echo "- 2026-10-$((i % 28 + 1)) · T-$i · abc$i · tests passed, with a note"; done; } > "$K/shop/tickets/STATE.md"
+n=$(wc -c < "$K/shop/tickets/STATE.md" | tr -d ' '); out=$(hook load-state '{"session_id":"s1","source":"resume"}')
+ok "a STATE.md over the old 5,000-byte limit ($n bytes) now loads whole" '[ "$n" -gt 5000 ] && [[ "$out" == *"T-90 · abc90"* && "$out" != *"Not loaded"* ]]'
+out=$(bash "$H/scripts/audit.sh" "$R" shop/tickets start)
+ok "and the check doesn't flag it" '[[ "$out" != *"STATE.md is "* ]]'
+printf '# Track: shop/tickets\n**Goal:** ship tickets\n%s\n' "$(head -c 9000 < /dev/zero | tr '\0' 'x')" > "$K/shop/tickets/CONTEXT.md"
+out=$(bash "$H/scripts/audit.sh" "$R" shop/tickets start)
+ok "a CONTEXT.md too big for its share of the reload is flagged" '[[ "$out" == *"CONTEXT.md is "*" bytes, more than the reload loads whole: move reference lists to NOTES.md"* ]]'
+printf '# Track: shop/tickets\n**Goal:** ship tickets\n' > "$K/shop/tickets/CONTEXT.md"
+mv "$st/state-backup" "$K/shop/tickets/STATE.md"
 
 echo "--- index, idle tracks and housekeeping"
 ago() { date -v-"$1"d +%Y%m%d%H%M 2>/dev/null || date -d "$1 days ago" +%Y%m%d%H%M; }
@@ -391,7 +411,7 @@ q "$W" worktree add -b worktree-w1 "$W/.claude/worktrees/w1"
 mkdir -p "$W/.trackside/app/main"
 printf '# Feature: app\n' > "$W/.trackside/app/FEATURE.md"
 state app/main "none" "none" > "$W/.trackside/app/main/STATE.md"
-wt() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$W" "$H/hooks/$1.sh"; }
+wt() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$W" "$H/hooks/$1.sh"; [ "$1" != load ] || printf '%s' "$2" | CLAUDE_PROJECT_DIR="$W" "$H/hooks/load-state.sh"; }
 wt bind '{"session_id":"w","prompt":"/trackside:start app/main"}' >/dev/null
 wt track "{\"session_id\":\"w\",\"cwd\":\"$W/.claude/worktrees/w1/src\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$W/.trackside/app/main/STATE.md\"}}"
 ok "in a worktree session the project repo is stamped in the worktree" '[ "$(cut -f2 "$W/.trackside/.state/stamp-app@main")" = "$(git -C "$W/.claude/worktrees/w1" rev-parse HEAD)" ] && [ "$(cut -f3 "$W/.trackside/.state/stamp-app@main")" = worktree-w1 ]'
@@ -415,7 +435,7 @@ q "$G" init -b main; q "$G" -c user.name=t -c user.email=t@example.com commit --
 mkdir -p "$G/.trackside/app/main"
 printf '# Feature: app\n\n**Repos:** .\n' > "$G/.trackside/app/FEATURE.md"
 state app/main "none" "none" > "$G/.trackside/app/main/STATE.md"
-g() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$G" "$H/hooks/$1.sh"; }
+g() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$G" "$H/hooks/$1.sh"; [ "$1" != load ] || printf '%s' "$2" | CLAUDE_PROJECT_DIR="$G" "$H/hooks/load-state.sh"; }
 g bind '{"session_id":"g","prompt":"/trackside:start app/main"}' >/dev/null
 g track "{\"session_id\":\"g\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$G/.trackside/app/main/STATE.md\"}}"
 ok "the stamp doesn't count trackside's own files as changes" '[ "$(cut -f4 "$G/.trackside/.state/stamp-app@main")" = 0 ]'
@@ -490,11 +510,11 @@ printf '# Notes: app/main\n' > "$AK/app/main/NOTES.md"
 au() { bash "$H/scripts/audit.sh" "$A" "${2:-app/main}" "$1"; }
 out=$(au start);                                       ok "a clean track has nothing to report" '[ -z "$out" ]'
 dup="- 2026-10-01 · T-1 · abc123 · this exact line is long enough to count as a duplicate"
-{ printf '# State: app/main\n\n## Inbox\n- 2020-01-01 · app/other · old news · affects tickets\n\n## Current\n- working on the importer\n- [assumed] marked line\n\n## Next step\n\n## Tickets\n- [ ] T-3: no check here\n- [ ] T-2: handle errors — acceptance: npm test passes\n\n## Done log\n%s\n\n## Gotchas\n- %s\n' "$dup" "$(head -c 5000 < /dev/zero | tr '\0' 'g')"; } > "$AK/app/main/STATE.md"
+{ printf '# State: app/main\n\n## Inbox\n- 2020-01-01 · app/other · old news · affects tickets\n\n## Current\n- working on the importer\n- [assumed] marked line\n\n## Next step\n\n## Tickets\n- [ ] T-3: no check here\n- [ ] T-2: handle errors — acceptance: npm test passes\n\n## Done log\n%s\n\n## Gotchas\n- %s\n' "$dup" "$(head -c 12000 < /dev/zero | tr '\0' 'g')"; } > "$AK/app/main/STATE.md"
 { printf '# Notes: app/main\n%s\n' "$dup"; head -c 16000 < /dev/zero | tr '\0' 'n'; printf '\n'; } > "$AK/app/main/NOTES.md"
 printf '# Track: app/main\n\n**Read on start:**\n- `NOTES.md`\n- `docs/missing.md`\n\n**Rules for this track:**\n- <anything specific to this line of work>\n' > "$AK/app/main/CONTEXT.md"
 out=$(au start)
-ok "it flags a STATE.md over 5,000 bytes" '[[ "$out" == *"STATE.md is "*" bytes, over 5,000"* ]]'
+ok "it flags a STATE.md only when the reload would leave part of it out, and names what" '[[ "$out" == *"STATE.md is "*" bytes, more than the reload loads whole (it would leave out Gotchas): move the oldest Done-log lines"* ]]'
 ok "an empty Next step" '[[ "$out" == *"Next step is empty"* ]]'
 ok "unmarked Current lines" '[[ "$out" == *"1 Current line(s) are not marked"* ]]'
 ok "tickets without an acceptance check" '[[ "$out" == *"1 open ticket(s) in STATE.md have no acceptance check"* ]]'
@@ -593,7 +613,7 @@ printf '# Decisions: pay\n\n## D-001 · 2026-10-20 · One form\n' > "$DK/pay/DEC
 printf '# Track: pay/main\n\n**Goal:** build pay\n' > "$DK/pay/main/CONTEXT.md"
 state pay/main "the KYC form per AD-2 and D-001 [assumed]" "check AD-1, AD-9 and CASH-12" > "$DK/pay/main/STATE.md"
 printf 'pay/main\n' > "$DS/track-d1"
-dh() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$D" "$H/hooks/$1.sh"; }
+dh() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$D" "$H/hooks/$1.sh"; [ "$1" != load ] || printf '%s' "$2" | CLAUDE_PROJECT_DIR="$D" "$H/hooks/load-state.sh"; }
 dsave() { dh track "{\"session_id\":\"d1\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$DK/pay/main/STATE.md\"}}" >/dev/null; }
 has() { awk -F'\t' -v d="$2" -v k="$3" -v n="$4" '$1 == d && $2 == k && $3 == n { f = 1 } END { exit !f }' "$1"; }
 dsave
@@ -657,11 +677,11 @@ awk -v t="$today" -v o="$long_ago" '{ print } /^## Lessons/ { print "- Check Uni
 out=$(bash "$H/scripts/audit.sh" "$C" rev/prs start)
 ok "it flags lessons not confirmed in 90 days, or never" '[[ "$out" == *"2 lesson(s) in LESSONS.md were not confirmed in the last 90 days"* && "$out" != *"no LESSONS.md"* ]]'
 ok "and candidates that didn't come up again in 60 days" '[[ "$out" == *"1 candidate lesson(s) in LESSONS.md did not come up again in 60 days: move them to NOTES.md."* ]]'
-head -c 4200 /dev/zero | tr '\0' x >> "$CK/rev/prs/LESSONS.md"
+head -c 12000 /dev/zero | tr '\0' x >> "$CK/rev/prs/LESSONS.md"
 out=$(bash "$H/scripts/audit.sh" "$C" rev/prs start)
-ok "and a LESSONS.md over 4,000 bytes" '[[ "$out" == *"LESSONS.md is "*" bytes, over 4,000"* ]]'
+ok "and a LESSONS.md the reload would cut" '[[ "$out" == *"LESSONS.md is "*" bytes, more than the reload loads whole"*"merge or replace lessons"* ]]'
 sed "s/<feature>\/<track>/rev\/prs/" "$H/templates/LESSONS.md" > "$CK/rev/prs/LESSONS.md"
-out=$(printf '{"session_id":"c1","source":"resume"}' | CLAUDE_PROJECT_DIR="$C" "$H/hooks/load.sh")
+out=$(printf '{"session_id":"c1","source":"resume"}' | CLAUDE_PROJECT_DIR="$C" "$H/hooks/load.sh"; printf '{"session_id":"c1","source":"resume"}' | CLAUDE_PROJECT_DIR="$C" "$H/hooks/load-state.sh")
 ok "the reload says each item starts clean and loads LESSONS.md" '[[ "$out" == *"Each item on this track starts clean: only CONTEXT.md and LESSONS.md carry over"* && "$out" == *"=== LESSONS.md (.trackside/rev/prs/LESSONS.md) ==="* ]]'
 out=$(printf '{"session_id":"c2","source":"resume"}' | CLAUDE_PROJECT_DIR="$C" "$H/hooks/load.sh")
 ok "a track whose items build on each other loads no LESSONS.md" '[[ "$out" != *LESSONS.md* && "$out" != *"starts clean"* ]]'
@@ -700,15 +720,16 @@ rm -rf "$P" "$GB" "$NG"
 echo "--- regressions from the 2026-10-23 audit"
 X=$(mktemp -d "${TMPDIR:-/tmp}/trackside-regress.XXXXXX"); XK="$X/.trackside"; XS="$XK/.state"
 mkdir -p "$XK/rev/prs" "$XS"
-xh() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$X" "$H/hooks/$1.sh"; }
+xh() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$X" "$H/hooks/$1.sh"; [ "$1" != load ] || printf '%s' "$2" | CLAUDE_PROJECT_DIR="$X" "$H/hooks/load-state.sh"; }
 long() { head -c "$1" /dev/zero | tr '\0' "$2"; }
 printf '# Feature: rev\n\n%s\n' "$(long 1950 f)" > "$XK/rev/FEATURE.md"
 printf '# Track: rev/prs\n\n**Each item starts clean:** yes\n\n%s\n' "$(long 2500 c)" > "$XK/rev/prs/CONTEXT.md"
-printf '# Lessons: rev/prs\n\n## Lessons\n- %s\n\n## Candidates\n' "$(long 3900 l)" > "$XK/rev/prs/LESSONS.md"
+printf '# Lessons: rev/prs\n\n## Lessons\n- %s\n\n## Candidates\n' "$(long 12000 l)" > "$XK/rev/prs/LESSONS.md"
 state rev/prs "api#7 in flight" "post the api#7 review" > "$XK/rev/prs/STATE.md"
 printf 'rev/prs\n' > "$XS/track-x1"
 out=$(xh load '{"session_id":"x1","source":"resume"}')
-ok "a clean track with every file at its limit still reloads STATE.md's Current and Next step" '[[ "$out" == *"api#7 in flight"* && "$out" == *"post the api#7 review"* ]] && [ "$(printf "%s" "$out" | wc -c | tr -d " ")" -le 9800 ]'
+n=$(xh load-state '{"session_id":"x1","source":"resume"}' | wc -c | tr -d ' ')
+ok "a clean track whose LESSONS.md is too big still reloads STATE.md's Current and Next step ($n bytes)" '[[ "$out" == *"api#7 in flight"* && "$out" == *"post the api#7 review"* ]] && [ "$n" -le 9800 ]'
 ok "and what was cut is LESSONS.md, which it names" '[[ "$out" == *"Read .trackside/rev/prs/LESSONS.md for them"* || "$out" == *"read .trackside/rev/prs/LESSONS.md in full"* ]] && [[ "$out" != *"STATE.md in full"* ]]'
 
 mkdir -p "$X/api" "$XK/solo/one"; q "$X/api" init -b main; q "$X/api" -c user.name=t -c user.email=t@example.com commit --allow-empty -m "start api"

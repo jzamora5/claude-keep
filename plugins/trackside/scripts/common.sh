@@ -223,6 +223,119 @@ repos_of() {
   printf '%s\n' "$line" | tr ',' '\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s#/$##' | grep -v '^$'
 }
 
+# The reload. Claude Code caps each hook's output at 10,000 characters, measured hook by hook, so the
+# reload is two outputs: load.sh's messages with FEATURE.md and CONTEXT.md, and load-state.sh's STATE.md, with
+# LESSONS.md after it on a track whose items start clean. Each part stays under reload_budget, counted in bytes (never
+# fewer than characters); cuts fall at line ends, and a file that doesn't fit loses whole sections, which are named.
+reload_budget=9300
+
+# chat_binding <keep> <session id> <title>: the track a starting chat is on: its binding, else the track its title
+# names when trackside named the chat, else the track remembered for a name the user gave it. Reads only, so the two
+# reload hooks, which run in parallel, agree on it.
+chat_binding() {
+  local b named
+  b=$(cat "$1/.state/track-$2" 2>/dev/null || true)
+  if [ -z "$b" ] && [[ "$3" == */* ]] && valid_name "${3%%/*}" && valid_name "${3#*/}" && [ -f "$1/$3/STATE.md" ]; then
+    b="$3"
+  fi
+  if [ -z "$b" ] && [ -n "$3" ] && ! keep_title "$3"; then
+    named=$(named_track "$1" "$3")
+    [ -n "$named" ] && [ -f "$1/$named/STATE.md" ] && b="$named"
+  fi
+  printf '%s' "$b"
+}
+
+_emit_add() { o+="$1"$'\n'; }
+
+# emit_file <title> <file> <budget> [sections that always load...]: the file under a "=== <title> ===" line, whole when
+# it fits the budget, else its sections in order while they fit, the listed ones always, and a line naming the rest.
+emit_file() {
+  local title="$1" f="$2" b="$3" o="" i n used size pre left want name s e
+  local -a names starts ends inc
+  shift 3
+  _emit_add ""
+  if [ ! -f "$f" ]; then _emit_add "=== $title: missing ($(rel "$f")) ==="; printf '%s' "$o"; return; fi
+  _emit_add "=== $title ($(rel "$f")) ==="
+  if [ "$(wc -c < "$f" | tr -d ' ')" -le "$b" ]; then _emit_add "$(cat "$f")"; printf '%s' "$o"; return; fi
+  names=(); starts=(); ends=(); inc=()
+  while IFS=$'\t' read -r name s e; do
+    [ -n "$name" ] || continue
+    names+=("$name"); starts+=("$s"); ends+=("$e"); inc+=(0)
+  done < <(sections "$f")
+  n=${#names[@]}
+  if [ "$n" -eq 0 ]; then
+    _emit_add "$(lines_within "$(( b > 0 ? b : 0 ))" < "$f")"
+    _emit_add "[Cut to stay under the hook output limit: read $(rel "$f") for the rest.]"
+    printf '%s' "$o"; return
+  fi
+  pre=""
+  [ "${starts[0]}" -gt 1 ] && pre=$(sed -n "1,$(( starts[0] - 1 ))p" "$f")
+  used=$(bytes "$pre")
+  for want in "$@"; do
+    for ((i = 0; i < n; i++)); do
+      [ "${names[$i]}" = "$want" ] || continue
+      size=$(sed -n "${starts[$i]},${ends[$i]}p" "$f" | wc -c)
+      inc[$i]=1
+      used=$(( used + size ))
+    done
+  done
+  for ((i = 0; i < n; i++)); do
+    [ "${inc[$i]}" = 1 ] && continue
+    size=$(sed -n "${starts[$i]},${ends[$i]}p" "$f" | wc -c)
+    if [ $(( used + size )) -le "$b" ]; then
+      inc[$i]=1
+      used=$(( used + size ))
+    fi
+  done
+  [ -n "$pre" ] && _emit_add "$pre"
+  left=""
+  for ((i = 0; i < n; i++)); do
+    if [ "${inc[$i]}" = 1 ]; then
+      _emit_add "$(sed -n "${starts[$i]},${ends[$i]}p" "$f")"
+    else
+      left="${left:+$left, }${names[$i]}"
+    fi
+  done
+  [ -n "$left" ] && _emit_add "[Not loaded, to stay under the hook output limit: $left. Read $(rel "$f") for them.]"
+  printf '%s' "$o"
+}
+
+# fsize <file>: its size in bytes, 0 when it's missing.
+fsize() { if [ -f "$1" ]; then wc -c < "$1" | tr -d ' '; else echo 0; fi; }
+
+# reload_files <keep> <track> <room>: FEATURE.md and CONTEXT.md for the first reload output, in <room> bytes. When
+# both don't fit, FEATURE.md gets what CONTEXT.md leaves, but never less than half.
+reload_files() {
+  local fdir="$1/${2%%/*}" tdir="$1/$2" room="$3" fb a
+  fb=$room
+  if [ $(( $(fsize "$fdir/FEATURE.md") + $(fsize "$tdir/CONTEXT.md") )) -gt "$room" ]; then
+    fb=$(( room - $(fsize "$tdir/CONTEXT.md") ))
+    [ "$fb" -ge $(( room / 2 )) ] || fb=$(( room / 2 ))
+  fi
+  a=$(emit_file "FEATURE.md" "$fdir/FEATURE.md" "$fb")
+  printf '%s\n' "$a"
+  emit_file "CONTEXT.md" "$tdir/CONTEXT.md" $(( room - $(bytes "$a") - 100 ))
+}
+
+# reload_state <keep> <track>: the second reload output. STATE.md comes first, so a last-resort cut can't take its
+# Current and Next step; the room LESSONS.md needs, up to half, is held back from STATE.md's budget instead.
+reload_state() {
+  local tdir="$1/$2" last held=0 o
+  last="$tdir/STATE.md"
+  if starts_clean "$1" "$2" && [ -f "$tdir/LESSONS.md" ]; then
+    last="$tdir/LESSONS.md"
+    held=$(fsize "$last")
+    [ "$held" -le $(( reload_budget / 2 )) ] || held=$(( reload_budget / 2 ))
+  fi
+  o="The state of $2, the track this chat is on:"$'\n'
+  o+="$(emit_file "STATE.md" "$tdir/STATE.md" $(( reload_budget - 200 - held )) "Inbox" "Current" "Next step")"$'\n'
+  [ "$last" = "$tdir/STATE.md" ] || o+="$(emit_file "LESSONS.md" "$last" $(( reload_budget - $(bytes "$o") - 100 )))"$'\n'
+  if [ "$(bytes "$o")" -gt 9800 ]; then
+    o="$(printf '%s' "$o" | lines_within 9600)"$'\n'"[Cut to stay under the hook output limit: read $(rel "$last") in full.]"
+  fi
+  printf '%s' "$o"
+}
+
 # The stamp is local runtime state: it describes this machine's checkouts, so it stays out of git.
 stamp_file() { printf '%s/.state/stamp-%s@%s' "$1" "${2%%/*}" "${2#*/}"; }
 

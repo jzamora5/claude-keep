@@ -9,8 +9,8 @@
      user stated it or corrected you; otherwise under Candidates, moved to Lessons the second time it comes up.
      When an item relies on a lesson and checks it again, update its confirmed date.
      One line per lesson: rule · why · scope (a repo, a path, or all) · evidence (the item, a file:line or a
-     doc) · confirmed YYYY-MM-DD. Keep this file under about 4,000 bytes: merge or replace lessons rather than
-     adding near-duplicates. -->
+     doc) · confirmed YYYY-MM-DD. Keep it small enough that the reload loads it whole; trackside's check says when it
+     doesn't. Merge or replace lessons rather than adding near-duplicates. -->
 
 ## Lessons
 

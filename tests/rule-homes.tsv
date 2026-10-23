@@ -10,9 +10,9 @@ each decision as soon as	hooks/load.sh	skills/start/SKILL.md	a chat bound mid-se
 couldn't get from the code	skills/save/SKILL.md	hooks/load.sh skills/start/SKILL.md	saves the hooks ask for don't load the save skill
 would help any chat in that repo	skills/done/SKILL.md	skills/close/SKILL.md skills/audit/SKILL.md	finishing a ticket, closing a track and the deep review each meet these lessons
 <repo>#<number>	scripts/prs.sh	skills/done/SKILL.md skills/next/SKILL.md templates/STATE.md	the script reads the format; done writes it, next acts on it, the template shows it
-5,000	scripts/audit.sh	skills/save/SKILL.md	the check enforces the limit; save keeps under it
 Nothing is deleted	templates/LESSONS.md	-	done and save point to LESSONS.md for how an item finishes
 Type /clear, then say next	skills/done/SKILL.md	-	-
 may call a track a workspace	hooks/load.sh	skills/audit/SKILL.md skills/close/SKILL.md skills/current/SKILL.md skills/done/SKILL.md skills/list/SKILL.md skills/next/SKILL.md skills/rename/SKILL.md skills/save/SKILL.md skills/start/SKILL.md	each skill's description has to match the word on its own
 Run each command below exactly as written	skills/start/SKILL.md	skills/close/SKILL.md skills/current/SKILL.md skills/done/SKILL.md skills/list/SKILL.md skills/next/SKILL.md skills/rename/SKILL.md skills/save/SKILL.md	every skill that runs trackside's scripts loads on its own
 which happens when a chat moves	skills/start/SKILL.md	skills/audit/SKILL.md skills/close/SKILL.md skills/current/SKILL.md skills/digest/SKILL.md skills/done/SKILL.md skills/list/SKILL.md skills/next/SKILL.md skills/rename/SKILL.md skills/save/SKILL.md	every skill loads on its own
+loads it whole	skills/save/SKILL.md	templates/CONTEXT.md templates/FEATURE.md templates/LESSONS.md	each template carries the rule for its own file, and save keeps STATE.md under it

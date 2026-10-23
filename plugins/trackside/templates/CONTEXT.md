@@ -1,6 +1,6 @@
 # Track: <feature>/<track>
 
-<!-- Stable: what this track is for. Loaded at the start of each chat. Keep it under about 2,500 bytes.
+<!-- Stable: what this track is for. Loaded at the start of each chat. Keep it small enough that the reload loads it whole; trackside's check says when it doesn't.
      To load more files at every start, add a "**Read on start:**" list. NOTES.md is read only when needed. -->
 
 **Goal:** <what this line of work delivers: tickets, a research question, reviews>
