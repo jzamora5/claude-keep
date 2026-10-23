@@ -18,5 +18,10 @@ if [ -z "$b" ] || [ ! -f "$keep/$b/STATE.md" ]; then
 fi
 s="$keep/$b/STATE.md"
 echo "This chat is on $b. A new chat starts it with /keep:start $b."
+if starts_clean "$keep" "$b"; then
+  echo "Each item starts clean: only CONTEXT.md and LESSONS.md carry over from one item to the next."
+else
+  echo "Items build on the track's history: its Done log, Dead ends and Gotchas carry over."
+fi
 echo "Current: $(current_line "$s" | grep . || echo "nothing written yet")"
 echo "Next step: $(section_line "$s" "Next step" | grep . || echo "none written yet")"

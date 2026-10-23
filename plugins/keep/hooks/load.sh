@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# SessionStart (startup|resume|clear|compact|fork): reload the bound track (FEATURE.md, the track's CONTEXT.md
-# and STATE.md) and report what changed in the feature's repos since STATE.md was written. An unbound chat
+# SessionStart (startup|resume|clear|compact|fork): reload the bound track (FEATURE.md, the track's CONTEXT.md,
+# LESSONS.md when each item starts clean, and STATE.md) and report what changed in the feature's repos since STATE.md was written. An unbound chat
 # gets the list of tracks instead. Compactions are counted, and after COMPACT_LIMIT (default 2) the agent
 # is asked to save and suggest a fresh chat.
 . "$(dirname "$0")/lib.sh"
@@ -119,6 +119,9 @@ add "Active track: $binding (a new chat starts it with /keep:start $binding). It
 add "The user may call a track a workspace; /keep:current shows this one."
 add "STATE.md is the handoff for the next chat and must stay current. Record each decision as soon as it's made, with the options rejected and why, where FEATURE.md says decisions go."
 [ -z "$(source_docs "$keep" "${binding%%/*}")" ] || add "The source docs FEATURE.md lists are the source of truth: before you state, decide or change anything they cover, ask the doc-expert subagent (pass it their paths and where decisions go) instead of trusting what STATE.md says, and cite what you use by ID (such as AD-28) or heading."
+if starts_clean "$keep" "$binding"; then
+  add "Each item on this track starts clean: only CONTEXT.md and LESSONS.md carry over from one item to the next. LESSONS.md says how to finish an item."
+fi
 if [ -n "$worktree" ]; then
   add "This chat runs in a Claude Code worktree, and Claude Code blocks edits to the main checkout, where $(rel "$keep")/ is. So this chat can read the track but can't update STATE.md, and isn't asked to. Say so in your first reply, so the user knows this chat's work won't reach the track."
 fi
@@ -152,6 +155,7 @@ if [ -z "$worktree" ]; then
 fi
 emit "FEATURE.md" "$fdir/FEATURE.md" 2000
 emit "CONTEXT.md" "$tdir/CONTEXT.md" 2600
+starts_clean "$keep" "$binding" && emit "LESSONS.md" "$tdir/LESSONS.md" 4000
 emit "STATE.md" "$tdir/STATE.md" $(( budget - $(bytes "$out") - 200 )) "Inbox" "Current" "Next step"
 
 if [ "$(bytes "$out")" -gt 9800 ]; then

@@ -12,7 +12,7 @@ Update the bound track's STATE.md in `${CLAUDE_PROJECT_DIR}/.keep/<feature>/<tra
 1. **Current:** the work in flight: branch or worktree, files touched, what works, what's left. Mark each line `[verified]` (checked against code, git or a test in this chat) or `[assumed]`. Include conclusions reached in discussion.
 2. **Next step:** one concrete action that names the file and function to touch, or the command to run.
 3. **Tickets:** check off only what passed its acceptance check. **Done log:** one line each, newest first: date · ticket · commit hash · how it was verified, or "unverified".
-4. **Dead ends:** approaches tried or rejected and why, and areas not to touch. **Gotchas:** anything learned the hard way.
+4. **Dead ends:** approaches tried or rejected and why, and areas not to touch. **Gotchas:** anything learned the hard way. On a track whose `CONTEXT.md` says each item starts clean, lessons go to `LESSONS.md` instead, and a finished item leaves `STATE.md` the way `LESSONS.md` says.
 5. **Decisions:** check that every decision made in this chat is recorded where FEATURE.md says decisions go, with the options rejected and why; record any that aren't. A decision that affects another track also gets a line in that track's Inbox: date · from · what changed · affects.
 6. Edit STATE.md in place: never rewrite it whole, and never delete a ticket or Done-log line. Leave an empty section with just its comment. Keep the file under 5,000 bytes by moving older Done-log lines and settled gotchas to NOTES.md.
 7. If keep's check listed issues for this track in this chat, fix now the ones that only move or de-duplicate text or fill in what's missing, and list the others for the user in your reply. If it listed none, skip this.

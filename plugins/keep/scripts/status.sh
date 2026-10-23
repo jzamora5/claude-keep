@@ -17,7 +17,9 @@ if [ -z "$rows" ]; then
   exit 0
 fi
 while IFS=$'\t' read -r f t cur _ days; do
-  line="- $f/$t: ${cur:-no current work} (start: /keep:start $f/$t)"
+  kind=""
+  starts_clean "$keep" "$f/$t" && kind=" (each item starts clean)"
+  line="- $f/$t$kind: ${cur:-no current work} (start: /keep:start $f/$t)"
   [ "$days" -ge "$idle" ] && line="$line (idle $days days; close it with /keep:close $f/$t)"
   echo "$line"
 done <<<"$rows"

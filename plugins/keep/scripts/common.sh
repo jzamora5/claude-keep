@@ -94,6 +94,10 @@ chat_name() { cat "$1/.state/name-$2" 2>/dev/null || true; }
 map_name() { [ -z "$2" ] || printf '%s\n' "$3" > "$(name_file "$1" "$2")"; }
 named_track() { [ -z "$2" ] || cat "$(name_file "$1" "$2")" 2>/dev/null || true; }
 
+# starts_clean <keep> <feature>/<track>: true for a track whose CONTEXT.md says each item starts clean, so only
+# CONTEXT.md and LESSONS.md carry over from one item to the next.
+starts_clean() { grep -qiE '^\*\*Each item starts clean:\*\*[[:space:]]*yes' "$1/$2/CONTEXT.md" 2>/dev/null; }
+
 # section_line <STATE.md> <heading>: the first entry under "## <heading>", skipping comments and blank lines.
 section_line() {
   awk -v h="## $2" 'index($0, "## ") == 1 { c = (index($0, h) == 1); next }

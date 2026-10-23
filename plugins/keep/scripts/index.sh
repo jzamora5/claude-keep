@@ -28,7 +28,9 @@ trap 'rm -f "$tmp"' EXIT
     while IFS=$'\t' read -r f t cur updated days; do
       note=""
       [ "$days" -ge "$idle" ] && note=", idle $days days: \`/keep:close $f/$t\`?"
-      printf '| %s/%s | %s | %s%s | `/keep:start %s` |\n' "$f" "$t" \
+      kind=""
+      starts_clean "$keep" "$f/$t" && kind=" (each item starts clean)"
+      printf '| %s/%s%s | %s | %s%s | `/keep:start %s` |\n' "$f" "$t" "$kind" \
         "$(printf '%s' "${cur:-none}" | sed 's/|/\\|/g')" "$updated" "$note" "$f/$t"
     done <<<"$rows"
   fi

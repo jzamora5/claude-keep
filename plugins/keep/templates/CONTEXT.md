@@ -7,5 +7,7 @@
 
 **Not here:** <what belongs to other tracks. Findings for them go into their Inbox, not into this track's work>
 
+**Each item starts clean:** <yes when the track's work is a stream of separate items, such as pull request reviews, or delete this line>
+
 **Rules for this track:**
 - <anything specific to this line of work>

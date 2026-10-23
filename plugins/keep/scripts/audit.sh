@@ -20,6 +20,7 @@ feature="$keep/$f/FEATURE.md"
 context="$keep/$track/CONTEXT.md"
 state="$keep/$track/STATE.md"
 notes="$keep/$track/NOTES.md"
+lessons="$keep/$track/LESSONS.md"
 cache="$st/audit-$f@$t"
 told="$cache.told"
 
@@ -28,7 +29,7 @@ size() { if [ -f "$1" ]; then wc -c < "$1" | tr -d ' '; else echo 0; fi; }
 # scans again, and so does a new day, since the Inbox check depends on the date, and a changed doc, since the
 # ID check depends on it.
 fingerprint() {
-  { date +%Y-%m-%d; cat "$0" "$feature" "$context" "$state" "$notes" 2>/dev/null
+  { date +%Y-%m-%d; cat "$0" "$feature" "$context" "$state" "$notes" "$lessons" 2>/dev/null
     source_docs "$keep" "$f" | while IFS= read -r p; do cat "$root/$p"; done; } | cksum | tr ' ' '-'
 }
 # section <file> <heading>: the lines under "## <heading>".
@@ -95,6 +96,29 @@ checks() {
     [ -n "$s" ] && [ $(( (now - s) / 86400 )) -gt 14 ] && n=$((n + 1))
   done < <(section "$state" Inbox | grep -v '<!--' | grep -oE '^[[:space:]]*[-*] [0-9]{4}-[0-9]{2}-[0-9]{2}' | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
   [ "$n" -gt 0 ] && printf 'inbox-stale\t%s Inbox item(s) are older than two weeks: ask the user how to handle them.\n' "$n"
+  starts_clean "$keep" "$track" || return 0
+  if [ ! -f "$lessons" ]; then
+    printf 'lessons-missing\tEach item on this track starts clean, but it has no LESSONS.md: create it from keep'"'"'s templates/LESSONS.md.\n'
+    return 0
+  fi
+  s=$(size "$lessons")
+  [ "$s" -gt 4000 ] && printf 'lessons-size\tLESSONS.md is %s bytes, over 4,000: merge or replace lessons rather than adding more.\n' "$s"
+  # stale_lines <section> <days>: how many lines in that section of LESSONS.md have no date, or a last date
+  # older than <days>.
+  stale_lines() {
+    local line day c=0
+    while IFS= read -r line; do
+      day=$(printf '%s' "$line" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | tail -1)
+      s=""
+      [ -n "$day" ] && s=$(epoch "$day")
+      if [ -z "$s" ] || [ $(( (now - s) / 86400 )) -gt "$2" ]; then c=$((c + 1)); fi
+    done < <(section "$lessons" "$1" | grep -E '^[[:space:]]*[-*] ')
+    echo "$c"
+  }
+  n=$(stale_lines Lessons 90)
+  [ "$n" -gt 0 ] && printf 'lessons-stale\t%s lesson(s) in LESSONS.md were not confirmed in the last 90 days: ask the user whether to keep, edit or drop each.\n' "$n"
+  n=$(stale_lines Candidates 60)
+  [ "$n" -gt 0 ] && printf 'candidates-old\t%s candidate lesson(s) in LESSONS.md did not come up again in 60 days: move them to NOTES.md.\n' "$n"
   return 0
 }
 

@@ -2,7 +2,7 @@
 
 Manual checks in a real session, after the hook tests (`bash tests/hooks.test.sh`) pass. Run them in the Claude desktop app first, then in VS Code.
 
-`bash tests/evals.sh` runs part of this list in real headless sessions with `claude plugin eval`: checks 1, 2, 3, 5, the proposal halves of 19 and 20, a typed `/keep:start` with a request (the chat is renamed, the request answered), the state after an edit, `/keep:done` stopping on a failed check, questions that say "workspace" instead of "track", a design doc that changed since the last save, and a question the docs answer. Each case is one message, so the checks that need several messages, a `/clear`, a resume, a compaction or the app's own permission prompts stay here.
+`bash tests/evals.sh` runs part of this list in real headless sessions with `claude plugin eval`: checks 1, 2, 3, 5, the proposal halves of 19 and 20, a typed `/keep:start` with a request (the chat is renamed, the request answered), the state after an edit, `/keep:done` stopping on a failed check, questions that say "workspace" instead of "track", a design doc that changed since the last save, a question the docs answer, a review track proposed with each item starting clean, and a finished review that records its lesson without a question. Each case is one message, so the checks that need several messages, a `/clear`, a resume, a compaction or the app's own permission prompts stay here.
 
 ## Setup
 
@@ -52,5 +52,7 @@ A plugin installed from a local folder is read from that folder, so changes take
 | 28 | `/keep:audit demo/tickets` in the app | A short list comes back in the chat, each item marked lossless or needing you. The lossless ones are applied; the rest are saved in `review-<date>.md` with an Inbox line, and nothing else changes until you agree |
 | 29 | Start a chat on a track whose notes grew by 10 KB | It starts the deep review in the background and keeps working; when the list comes back, lossless items are applied, the rest land in `review-<date>.md` with an Inbox line, and a new chat on the track doesn't start another review |
 | 30 | In a chat bound to `demo/tickets`, save, then edit the Rules section of `docs/spec.md` and `/clear` | The reload names `docs/spec.md` and its Rules section as changed, and the agent checks it (with `doc-expert`) before relying on what `STATE.md` says |
+| 31 | Say "I want a keep track for reviewing pull requests" | The proposal says each item starts clean; after your OK, the track's `CONTEXT.md` has `**Each item starts clean:** yes` and it has a `LESSONS.md`; `/keep:list` and `/keep:current` show it |
+| 32 | On that track, finish a review and state a lesson in the same message | The lesson lands in `LESSONS.md` with no question, the review's details leave `STATE.md`, and one Done-log line stays |
 
 Write down anything that differs, with the exact output.

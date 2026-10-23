@@ -27,6 +27,7 @@ Everything is plain Markdown in your project, and the hooks make no network or m
 - **Opt in mid-chat.** keep does nothing in a chat until it's bound, so an ongoing chat can opt in at any point: ask the agent to work on a track or to save the chat to keep, or type `/keep:start`. If no track fits, the agent proposes a new track, in an existing feature when one fits. When you bind a chat that already has work in it, the agent offers `/keep:save` so what the chat already knows reaches the track.
 - **Stays under the limit.** Hook output over 10,000 characters reaches Claude only as a short preview, so the reload always includes the Inbox, Current and Next step, adds whole sections while they fit, and names the ones it left out.
 - **Decisions.** Each decision is recorded when it's made, with the options it rejected and why, so a later chat doesn't propose them again. The save reminder asks for any decision not recorded yet.
+- **Some tracks start each item clean.** For a stream of separate items, such as pull request reviews, only the track's `CONTEXT.md` and a short `LESSONS.md` carry over from one item to the next. A finished item leaves one Done-log line, and its details move to `NOTES.md` or stay in the item's own file, so nothing is deleted. A lesson you stated, or a correction you made, goes into `LESSONS.md` without a question. One the agent noticed goes in as a candidate, and becomes a lesson the second time it comes up. Lessons nobody has confirmed in 90 days are flagged. The agent proposes this only when it creates a track, as part of the proposal you confirm. The list, the index, `/keep:current` and the reply after binding all show it, and the periodic review flags a track whose kind doesn't fit its work. Other tracks, such as features, research or docs, build on their history as before.
 - **The source docs stay the source of truth.** In a feature with source docs, the agent asks `doc-expert` before it states, decides or changes anything they cover, instead of trusting what the state says about them, and cites what it uses by ID (such as AD-28) or heading. Each save records a checksum of every section of the docs and of every ID they define (in a table's first column or in a heading), so the next chat is told which sections and IDs changed since, starting with the ones its state cites. The feature's `DECISIONS.md` counts as a source doc. A save indexes only the docs that changed: about a second for a 580 KB doc.
 - **You always know what exists.** `.keep/INDEX.md` is regenerated at every chat start and every state save: each track, its current work (or its goal when nothing is in flight), its last update and the command to start it. A new track is proposed in one message, with its name, its goal and, for a new feature, the repos and settings the agent found; nothing is created until you confirm or correct it.
 - **Kept tidy on its own.** After every save, at every chat start and right after a chat is bound, a quick check flags what would trip up a new chat:
@@ -75,7 +76,8 @@ The `doc-expert` subagent answers questions from the source docs, so a chat neve
     DIGEST.md        optional, built by /keep:digest
     DECISIONS.md     optional, when decisions aren't recorded in a source doc
     <track>/
-      CONTEXT.md     what the track is for
+      CONTEXT.md     what the track is for, and whether each item starts clean
+      LESSONS.md     only when each item starts clean: what carries over between items
       STATE.md       Inbox, Current, Next step, Tickets, Done log, Dead ends, Gotchas, Open questions
       NOTES.md       reference, read on demand
   _archive/          closed tracks and features
@@ -126,7 +128,7 @@ keep's skills run their own scripts without asking. Saving STATE.md outside a sk
 
 ## Status
 
-Version 0.9.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2, and ten behaviors are checked in real headless sessions with `claude plugin eval` (`bash tests/evals.sh`, cases in `plugins/keep/evals/`). `tests/live-checklist.md` lists the checks that still need a person: several messages in a row, `/clear`, resume, compaction and the app's permission prompts.
+Version 0.13.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2, and 19 behaviors are checked in real headless sessions with `claude plugin eval` (`bash tests/evals.sh`, cases in `plugins/keep/evals/`). `tests/live-checklist.md` lists the checks that still need a person: several messages in a row, `/clear`, resume, compaction and the app's permission prompts.
 
 ## Credits
 

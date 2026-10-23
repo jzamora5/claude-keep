@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.0 · 2026-10-23
+
+- A track can start each item clean: `**Each item starts clean:** yes` in its `CONTEXT.md`, for a stream of separate items such as pull request reviews. Only `CONTEXT.md` and the track's `LESSONS.md` carry over from one item to the next, and both load at every chat start.
+- When such an item is finished, it leaves one Done-log line, and its details move to `NOTES.md` or stay in the item's own file. A lesson the user stated goes into `LESSONS.md` right away, without a question. One the agent inferred goes in as a candidate, and is promoted the second time it comes up. `LESSONS.md` says how, so every chat on the track has the rule.
+- The agent proposes the kind only when it creates a track, in plain words, as part of the proposal the user confirms. The list, the index, `/keep:current` and the first reply after binding show it.
+- keep's check flags a clean track without `LESSONS.md`, a `LESSONS.md` over 4,000 bytes, lessons not confirmed in 90 days, and candidates that didn't come up again in 60 days. The periodic review flags a kind that doesn't fit the work.
+- `/keep:done` on a ticket that changed no repo files, such as a review, goes straight to updating `STATE.md` instead of asking to commit.
+
 ## 0.12.0 · 2026-10-23
 
 - In a feature with source docs, every chat is told they're the source of truth: before it states, decides or changes anything they cover, the agent asks `doc-expert` instead of relying on what `STATE.md` says about them, and cites what it uses by ID (such as AD-28) or heading. `doc-expert` returns the IDs and headings its answer comes from.

@@ -607,6 +607,49 @@ ok "a save that indexes a $(( $(wc -c < "$D/docs/rfc.md") / 1024 )) KB doc takes
 ok "and once it's indexed, a save takes under 1 s (${warm} ms)" '[ "$warm" -lt 1000 ]'
 rm -rf "$D"
 
+echo "--- tracks whose items start clean"
+C=$(mktemp -d "${TMPDIR:-/tmp}/keep-clean.XXXXXX"); CK="$C/.keep"
+mkdir -p "$CK/rev/prs" "$CK/rev/build" "$CK/.state"
+printf '# Feature: rev\n' > "$CK/rev/FEATURE.md"
+printf '# Track: rev/prs\n\n**Goal:** review pull requests\n\n**Each item starts clean:** yes\n' > "$CK/rev/prs/CONTEXT.md"
+printf '# Track: rev/build\n\n**Goal:** build the feature\n' > "$CK/rev/build/CONTEXT.md"
+for t in prs build; do state "rev/$t" none "pick the next one" > "$CK/rev/$t/STATE.md"; done
+out=$(bash "$H/scripts/status.sh" "$C")
+ok "the list marks a track whose items start clean, and only that one" '[[ "$out" == *"- rev/prs (each item starts clean): "* && "$out" == *"- rev/build: "* ]]'
+bash "$H/scripts/index.sh" "$C"
+ok "so does the index" 'grep -q "^| rev/prs (each item starts clean) |" "$CK/INDEX.md" && grep -q "^| rev/build |" "$CK/INDEX.md"'
+printf 'rev/prs\n' > "$CK/.state/track-c1"; printf 'rev/build\n' > "$CK/.state/track-c2"
+out=$(bash "$H/scripts/current.sh" "$C" c1)
+ok "/keep:current says each item starts clean" '[[ "$out" == *"Each item starts clean: only CONTEXT.md and LESSONS.md carry over from one item to the next."* ]]'
+out=$(bash "$H/scripts/current.sh" "$C" c2)
+ok "and says when items build on the track's history" '[[ "$out" == *"Items build on the track'"'"'s history"* ]]'
+out=$(bash "$H/scripts/audit.sh" "$C" rev/prs start)
+ok "the check flags a clean track without LESSONS.md" '[[ "$out" == *"it has no LESSONS.md: create it from keep'"'"'s templates/LESSONS.md"* ]]'
+out=$(bash "$H/scripts/audit.sh" "$C" rev/build start)
+ok "but not a track whose items build on each other" '[[ "$out" != *LESSONS.md* ]]'
+today=$(date +%Y-%m-%d); long_ago=$(date -v-120d +%Y-%m-%d 2>/dev/null || date -d "120 days ago" +%Y-%m-%d)
+sed "s/<feature>\/<track>/rev\/prs/" "$H/templates/LESSONS.md" > "$CK/rev/prs/LESSONS.md"
+awk -v t="$today" -v o="$long_ago" '{ print } /^## Lessons/ { print "- Check Union CSS in node_modules · Jest maps CSS away · web · #116 · confirmed " t; print "- Read PRs in a scratch worktree · the checkout lacks @stripe · web · #116 · confirmed " o; print "- An old rule with no date · why · all · #9" } /^## Candidates/ { print "- Codes should be uppercase · seen in #120 on " o }' "$CK/rev/prs/LESSONS.md" > "$CK/l.tmp" && mv "$CK/l.tmp" "$CK/rev/prs/LESSONS.md"
+out=$(bash "$H/scripts/audit.sh" "$C" rev/prs start)
+ok "it flags lessons not confirmed in 90 days, or never" '[[ "$out" == *"2 lesson(s) in LESSONS.md were not confirmed in the last 90 days"* && "$out" != *"no LESSONS.md"* ]]'
+ok "and candidates that didn't come up again in 60 days" '[[ "$out" == *"1 candidate lesson(s) in LESSONS.md did not come up again in 60 days: move them to NOTES.md."* ]]'
+head -c 4200 /dev/zero | tr '\0' x >> "$CK/rev/prs/LESSONS.md"
+out=$(bash "$H/scripts/audit.sh" "$C" rev/prs start)
+ok "and a LESSONS.md over 4,000 bytes" '[[ "$out" == *"LESSONS.md is "*" bytes, over 4,000"* ]]'
+sed "s/<feature>\/<track>/rev\/prs/" "$H/templates/LESSONS.md" > "$CK/rev/prs/LESSONS.md"
+out=$(printf '{"session_id":"c1","source":"resume"}' | CLAUDE_PROJECT_DIR="$C" "$H/hooks/load.sh")
+ok "the reload says each item starts clean and loads LESSONS.md" '[[ "$out" == *"Each item on this track starts clean: only CONTEXT.md and LESSONS.md carry over"* && "$out" == *"=== LESSONS.md (.keep/rev/prs/LESSONS.md) ==="* ]]'
+out=$(printf '{"session_id":"c2","source":"resume"}' | CLAUDE_PROJECT_DIR="$C" "$H/hooks/load.sh")
+ok "a track whose items build on each other loads no LESSONS.md" '[[ "$out" != *LESSONS.md* && "$out" != *"starts clean"* ]]'
+ok "the template's CONTEXT.md offers the line, as a placeholder the check catches" 'grep -q "^\*\*Each item starts clean:\*\* <yes when" "$H/templates/CONTEXT.md" && ! (grep "^\*\*Each item starts clean" "$H/templates/CONTEXT.md" | grep -qi "clean:\*\* *yes")'
+ok "LESSONS.md says how an item finishes: details moved, not deleted, lessons recorded without asking" 'grep -q "Nothing is deleted" "$H/templates/LESSONS.md" && grep -q "without asking" "$H/templates/LESSONS.md" && grep -q "## Candidates" "$H/templates/LESSONS.md"'
+ok "the start skill proposes the kind only when creating a track, in plain words" 'grep -q "Whether each item starts clean, in those words" "$H/skills/start/SKILL.md"'
+ok "done and save finish a clean track's item the way LESSONS.md says" 'grep -q "finish the item the way its \`LESSONS.md\` says" "$H/skills/done/SKILL.md" && grep -q "the way \`LESSONS.md\` says" "$H/skills/save/SKILL.md"'
+ok "the deep review checks whether the kind fits the work" 'grep -q "a kind that doesn'"'"'t fit the work" "$H/skills/audit/SKILL.md" && grep -q "Changing the kind always needs the user" "$H/skills/audit/SKILL.md"'
+out=$(bash "$H/scripts/rename.sh" "$C" rev/prs reviews)
+ok "renaming a clean track keeps its kind and renames its LESSONS.md header" '[ -f "$CK/rev/reviews/LESSONS.md" ] && head -1 "$CK/rev/reviews/LESSONS.md" | grep -qx "# Lessons: rev/reviews" && bash "$H/scripts/status.sh" "$C" | grep -q "^- rev/reviews (each item starts clean)"'
+rm -rf "$C"
+
 echo "--- skill commands"
 ok "nothing refers to a custom keep folder anymore" '! grep -rq KEEP_FOLDER "$H"'
 ok "skills run commands from the project root, not the working directory" '[ -z "$(grep -n "PWD" "$H"/skills/*/SKILL.md | grep -v "freshness.sh")" ]'
