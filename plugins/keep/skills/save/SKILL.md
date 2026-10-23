@@ -7,7 +7,7 @@ If `${CLAUDE_PROJECT_DIR}` has no `.keep/` folder, which happens when a chat mov
 
 Run each command below exactly as written, one per call, apart from that folder when it applies: keep pre-approves them in that form, so they run without permission prompts.
 
-Update the bound track's STATE.md in `${CLAUDE_PROJECT_DIR}/.keep/<feature>/<track>/`. `cat "${CLAUDE_PROJECT_DIR}/.keep/.state/track-${CLAUDE_SESSION_ID}" 2>/dev/null` prints the track this chat is bound to, as `<feature>/<track>`. If it prints nothing, run the start skill first, so the user picks or creates the track, then save to it. Write it for an agent with no memory of this chat. It's done when deleting this chat would lose nothing.
+Update the bound track's STATE.md in `${CLAUDE_PROJECT_DIR}/.keep/<feature>/<track>/`. `cat "${CLAUDE_PROJECT_DIR}/.keep/.state/track-${CLAUDE_SESSION_ID}" 2>/dev/null` prints the track this chat is bound to, as `<feature>/<track>`. If it prints nothing, run the start skill first, then save to the track it binds: with the full name of the one track that clearly fits this chat's work, or with no name, so the user picks or creates one, when more than one could fit or none does. Write it for an agent with no memory of this chat. It's done when deleting this chat would lose nothing.
 
 1. **Current:** the work in flight: branch or worktree, files touched, what works, what's left. Mark each line `[verified]` (checked against code, git or a test in this chat) or `[assumed]`. Include conclusions reached in discussion.
 2. **Next step:** one concrete action that names the file and function to touch, or the command to run.

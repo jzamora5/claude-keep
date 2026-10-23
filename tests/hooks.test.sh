@@ -37,11 +37,11 @@ rm -rf "$E"
 echo "--- binding"
 out=$(hook load '{"session_id":"s1","source":"startup"}')
 ok "unbound chat lists tracks with their current work" '[[ "$out" == *"No keep track is bound"* && "$out" == *"shop/tickets: Ticket: T-7 checkout fix"* && "$out" == *"solo/main"* ]]'
-ok "and asks the agent, once, whether to keep new work in a track" '[[ "$out" == *"ask once whether to keep that work in a track"* && "$out" == *"Act only after the user agrees"* ]]'
-ok "for real work only, matching a track or offering a new one" '[[ "$out" == *"starts work"* && "$out" == *"not a quick question"* && "$out" == *"offer to create a track if none matches"* ]]'
+ok "and tells the agent to bind on its own when one track clearly fits, for real work only" '[[ "$out" == *"starts work"* && "$out" == *"not a quick question"* && "$out" == *"if one track clearly fits it"* && "$out" == *"bind the chat to it right away"* ]]'
+ok "to ask only when more than one could fit, and to create a track only once the user agrees" '[[ "$out" == *"If more than one track could fit, ask once which"* && "$out" == *"offer once to create a track, and create it only after the user agrees"* && "$out" == *"once the user unbinds it or turns a track down"* ]]'
 X=$(mktemp -d "${TMPDIR:-/tmp}/keep-none.XXXXXX"); mkdir -p "$X/.keep"
 out=$(printf '{"session_id":"x1","source":"startup"}' | CLAUDE_PROJECT_DIR="$X" "$H/hooks/load.sh")
-ok "a keep folder with no tracks yet still offers to create one" '[[ "$out" == *"offer to create a track"* && "$out" != *"Tracks, their"* ]]'
+ok "a keep folder with no tracks yet still offers to create one" '[[ "$out" == *"offer once to create a track"* && "$out" != *"Tracks, their"* ]]'
 rm -rf "$X"
 ok "the state folder ignores itself in git" '[ "$(cat "$st/.gitignore")" = "*" ]'
 out=$(hook bind '{"session_id":"s1","prompt":"/keep:start shop/tickets"}')
@@ -88,7 +88,7 @@ ok "off unbinds the chat and says its unsaved work wasn't saved" '[ ! -f "$st/tr
 out=$(hook bind '{"session_id":"b2","prompt":"ok"}')
 ok "the chat is renamed so its title can't rebind it" '[ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = "shop/research (unbound)" ]'
 out=$(hook load '{"session_id":"b9","source":"clear","session_title":"shop/research (unbound)"}')
-ok "a cleared chat with that title stays unbound" '[ ! -f "$st/track-b9" ] && [[ "$out" == *"No keep track is bound"* ]]'
+ok "a cleared chat with that title stays unbound, and isn't bound on its own" '[ ! -f "$st/track-b9" ] && [[ "$out" == *"No keep track is bound"* && "$out" == *"The user unbound this chat from its track, so don'"'"'t bind it on your own"* && "$out" != *"bind the chat to it right away"* ]]'
 out=$(bash "$H/scripts/bind.sh" "$R" b2 off)
 ok "off on an unbound chat says so" '[ "$out" = "This chat isn'"'"'t bound to a track." ]'
 hook bind '{"session_id":"b4","prompt":"/keep:start shop/tickets"}' >/dev/null
@@ -142,8 +142,13 @@ hook load '{"session_id":"u4","source":"startup","session_title":"My review"}' >
 bash "$H/scripts/bind.sh" "$R" u4 shop/research >/dev/null
 ok "the start skill's bind keeps a named chat's name too" '[ ! -f "$st/title-u4" ] && [ "$(cat "$(nf "My review")")" = shop/research ]'
 out=$(hook bind '{"session_id":"u1","prompt":"/keep:start off"}')
-hook load '{"session_id":"u5","source":"clear","session_title":"CASH-508 withdrawal"}' >/dev/null
-ok "unbinding a named chat keeps its name and forgets its track" '[ -z "$out" ] && [ ! -f "$st/track-u1" ] && [ ! -f "$(nf "CASH-508 withdrawal")" ] && [ ! -f "$st/track-u5" ]'
+ok "unbinding a named chat keeps its name and remembers it was unbound" '[ -z "$out" ] && [ ! -f "$st/track-u1" ] && [ "$(cat "$(nf "CASH-508 withdrawal")")" = off ]'
+out=$(hook load '{"session_id":"u5","source":"clear","session_title":"CASH-508 withdrawal"}')
+ok "so after /clear it stays unbound and isn't bound on its own" '[ ! -f "$st/track-u5" ] && [[ "$out" == *"The user unbound this chat from its track"* && "$out" != *"bind the chat to it right away"* ]]'
+bash "$H/scripts/bind.sh" "$R" u4 off >/dev/null
+ok "the start skill's off on a named chat remembers it too" '[ ! -f "$st/track-u4" ] && [ ! -f "$st/title-u4" ] && [ "$(cat "$(nf "My review")")" = off ]'
+bash "$H/scripts/bind.sh" "$R" u4 shop/research >/dev/null
+ok "binding it again replaces that" '[ "$(cat "$(nf "My review")")" = shop/research ]'
 rm -f "$st"/track-u2 "$st"/track-u3 "$st"/track-u4
 
 echo "--- a chat that moved to another folder"

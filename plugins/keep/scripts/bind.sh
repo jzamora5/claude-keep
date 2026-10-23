@@ -28,7 +28,7 @@ if [ "$name" = off ]; then
   if [ -z "$title" ]; then
     echo "This chat isn't bound to a track."
   else
-    if [ -n "$own" ]; then unmap_name "$keep" "$own"; else printf '%s' "$title" > "$st/title-$sid"; fi
+    if [ -n "$own" ]; then map_name "$keep" "$own" off; else printf '%s' "$title" > "$st/title-$sid"; fi
     echo "Unbound this chat from ${title% (unbound)}.$unsaved"
   fi
   note_jq

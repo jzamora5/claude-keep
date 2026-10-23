@@ -89,10 +89,10 @@ name_file() { printf '%s/.state/named-%s' "$1" "$(printf '%s' "$2" | cksum | tr 
 # chat_name <keep> <session id>: the chat's own name, if the user gave it one.
 chat_name() { cat "$1/.state/name-$2" 2>/dev/null || true; }
 
-# map_name <keep> <name> <track>, named_track <keep> <name>, unmap_name <keep> <name>.
+# map_name <keep> <name> <track>, named_track <keep> <name>. A chat the user unbound is mapped to "off", which
+# no track can be named, so it isn't bound on its own again after /clear.
 map_name() { [ -z "$2" ] || printf '%s\n' "$3" > "$(name_file "$1" "$2")"; }
 named_track() { [ -z "$2" ] || cat "$(name_file "$1" "$2")" 2>/dev/null || true; }
-unmap_name() { [ -z "$2" ] || rm -f "$(name_file "$1" "$2")"; }
 
 # section_line <STATE.md> <heading>: the first entry under "## <heading>", skipping comments and blank lines.
 section_line() {

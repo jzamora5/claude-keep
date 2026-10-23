@@ -103,7 +103,12 @@ if [ -z "$binding" ] || [ ! -f "$keep/$binding/STATE.md" ]; then
     add "Tracks, their current work or goal, and how to start each:"
     add "$list"
   fi
-  add "The first time a message of the user starts work (a change, research or a ticket, not a quick question), ask once whether to keep that work in a track: name the matching track, list the candidates if it could be more than one, or offer to create a track if none matches. Act only after the user agrees, by running the keep start skill (/keep:start) with the track's full name, <feature>/<track>, or with no name to create one, and then carry on with what they asked. Otherwise just answer."
+  # A chat the user unbound stays unbound after /clear: its title says so, or keep remembered "off" for its name.
+  if [[ "$title" == *" (unbound)" ]] || [ "$(named_track "$keep" "$title")" = off ]; then
+    add "The user unbound this chat from its track, so don't bind it on your own. If they ask to use a track, run the keep start skill (/keep:start) with its full name, <feature>/<track>."
+  else
+    add "When a message of the user starts work (a change, a review, research or a ticket, not a quick question): if one track clearly fits it, because its name, goal or current work is about that work and no other track's is, bind the chat to it right away by running the keep start skill (/keep:start) with the track's full name, <feature>/<track>, and carry on with what they asked. If more than one track could fit, ask once which, listing them. If none fits, offer once to create a track, and create it only after the user agrees, by running the keep start skill with no name. Don't bind again in this chat once the user unbinds it or turns a track down. Otherwise just answer."
+  fi
   printf '%s' "$out" | lines_within "$budget"
   exit 0
 fi

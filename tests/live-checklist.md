@@ -2,7 +2,7 @@
 
 Manual checks in a real session, after the hook tests (`bash tests/hooks.test.sh`) pass. Run them in the Claude desktop app first, then in VS Code.
 
-`bash tests/evals.sh` runs part of this list in real headless sessions with `claude plugin eval`: checks 1, 2, 5, the proposal halves of 19 and 20, a typed `/keep:start` with a request (the chat is renamed, the request answered), the state after an edit, `/keep:done` stopping on a failed check, and questions that say "workspace" instead of "track". Each case is one message, so the checks that need several messages, a `/clear`, a resume, a compaction or the app's own permission prompts stay here.
+`bash tests/evals.sh` runs part of this list in real headless sessions with `claude plugin eval`: checks 1, 2, 3, 5, the proposal halves of 19 and 20, a typed `/keep:start` with a request (the chat is renamed, the request answered), the state after an edit, `/keep:done` stopping on a failed check, and questions that say "workspace" instead of "track". Each case is one message, so the checks that need several messages, a `/clear`, a resume, a compaction or the app's own permission prompts stay here.
 
 ## Setup
 
@@ -23,8 +23,8 @@ A plugin installed from a local folder is read from that folder, so changes take
 | # | Do | Expect |
 | --- | --- | --- |
 | 1 | In a new chat, ask "Which keep tracks exist?" | It answers from the start-of-chat context without reading files: `demo/research` and `demo/tickets`, and doesn't offer to bind the chat |
-| 2 | In a new chat, say "Let's continue the discount tickets" | It names `demo/tickets` and asks whether to bind the chat; nothing is bound yet |
-| 3 | Say "yes" | It binds the chat, loads the track and carries on with the request; the chat is renamed `demo/tickets` at your next message |
+| 2 | In a new chat, say "Let's continue the discount tickets" | It binds the chat to `demo/tickets` without asking, says so in one line with `/keep:start off` to undo it, and carries on with the request; the chat is renamed `demo/tickets` at your next message |
+| 3 | In a new chat, say "Let's continue with the discount feature" | It asks which of `demo/tickets` and `demo/research`; nothing is bound until you answer |
 | 4 | In a new chat, `/keep:start demo/tickets` | The chat is renamed `demo/tickets`, and it replies with three lines: state, Inbox and repo changes, next step |
 | 5 | `/keep:next` | It proposes T-1 with a plan, files and acceptance check, and waits; no code yet |
 | 6 | Approve T-1 | It edits `api/app.js`, then gets Stop hook feedback and updates Current and Next step in `STATE.md` before the turn ends; `.keep/.state/stamp-demo@tickets` appears |
@@ -38,14 +38,14 @@ A plugin installed from a local folder is read from that folder, so changes take
 | 14 | In a second chat, `/keep:start demo/research settle Q-1` | It binds `demo/research` and works on Q-1 without waiting; a new entry in `DECISIONS.md` with rejected options, and an Inbox line in `demo/tickets` if it affects tickets |
 | 15 | Reopen the first chat later (resume) | It's still bound to `demo/tickets` |
 | 16 | Fork a bound chat | Note which happens: the fork is told no track is bound, or it keeps the chat title and is rebound to the same track, which leaves two chats on one track |
-| 17 | In a new chat, agree to a suggested track, then `/clear` right away with no other message | Note whether the new chat is still bound: the chat is renamed only at the next message, so it may not be |
+| 17 | In a new chat, let it bind a track on its own, then `/clear` right away with no other message | Note whether the new chat is still bound: the chat is renamed only at the next message, so it may not be |
 | 18 | `/keep:list` | It shows `.keep/INDEX.md`: each track, its current work, its last update and its start command |
 | 19 | Say "I want to start on checkout emails" | It proposes a new track in one message: its name and goal and, if it's a new feature, the repos it found (`api`, `web`), `DECISIONS.md` and no planning. There's no git offer, because the sandbox's `.keep/` already exists. After your OK it creates the track, with no placeholder lines left in its files, and binds the chat to it, with no second `/keep:start`; INDEX.md lists it |
 | 20 | Say "We're done with the research track, close it" | It lists what's still open and asks where each item goes, then moves the track into `.keep/_archive/`, unbinds its chats and commits `.keep` |
-| 21 | In a chat that isn't bound, after some discussion, say "Save this to keep" | It asks which track (or proposes a new one), binds the chat, then saves what the chat knows into that track's `STATE.md` |
+| 21 | In a chat that isn't bound, after some discussion, say "Save this to keep" | It binds the track that clearly fits (or asks which one, or proposes a new one, when it's unclear), then saves what the chat knows into that track's `STATE.md` |
 | 22 | In a chat that isn't bound, say "I'm done with this ticket" | It says no track is bound and doesn't run tests or offer a commit |
 | 23 | In a chat bound to `demo/tickets`, edit a file, then say "switch to the research track" | It saves the edit to `demo/tickets` first, then binds `demo/research` |
-| 24 | `/keep:start off` | The chat is unbound, renamed `demo/research (unbound)`, and isn't rebound after `/clear` |
+| 24 | `/keep:start off` | The chat is unbound, renamed `demo/research (unbound)`, and isn't rebound after `/clear`, even when your next message starts work that fits a track |
 | 25 | In default permission mode, `/keep:start demo/tickets` | No permission prompt for keep's own scripts |
 | 26 | In a new chat, `/rename my-review`, then `/keep:start demo/tickets`, then `/clear` and ask "which workspace is this?" | The chat keeps the name `my-review` throughout, and after `/clear` it's still on `demo/tickets` |
 | 27 | In a chat, `/keep:start demo/tickets` on a track with an empty Next step | The agent fills in the Next step at its first save, or mentions it once, after answering |

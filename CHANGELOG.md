@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.0 · 2026-10-23
+
+- When a chat that isn't bound starts work that clearly fits one track, the agent binds it to that track and carries on, saying so in one line with `/keep:start off` to undo it, instead of asking first. It asks only when more than one track could fit, and still creates a track only after you agree. `/keep:save` in a chat that isn't bound works the same way.
+- A chat you unbound stays unbound, `/clear` included: keep remembers the `off` for a chat you named, as it does for the chats it names `<feature>/<track> (unbound)`.
+
 ## 0.10.0 · 2026-10-23
 
 **Breaking:** `/keep:start` takes only a track's full name, `<feature>/<track>`. A bare name such as `/keep:start tickets` no longer binds, even when only one track has it: it was ambiguous to read, and could start meaning another track once one was added. The start skill lists the full names it could mean instead. Every listing, the index, `/keep:current` and the save and compaction messages show the full command.

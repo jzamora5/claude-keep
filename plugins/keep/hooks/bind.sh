@@ -11,7 +11,7 @@ title=""
 if [[ "$prompt" =~ ^/(keep:)?start[[:space:]]+([^[:space:]]+)([[:space:]]|$) ]]; then
   if [ "${BASH_REMATCH[2]}" = off ]; then
     title=$(unbind_chat "$keep" "$sid")
-    [ -z "$name" ] || unmap_name "$keep" "$name"
+    [ -z "$name" ] || map_name "$keep" "$name" off
   elif target=$(bind_chat "$keep" "$sid" "${BASH_REMATCH[2]}"); then
     title="$target"
     [ -z "$name" ] || map_name "$keep" "$name" "$target"
