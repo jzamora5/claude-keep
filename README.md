@@ -14,7 +14,7 @@ It's harder when you own a whole feature rather than one ticket. The build, rese
 
 **From session handoff tools**, which write a summary when you ask for one, at the end of a session or just before a compaction, for one session or one repo:
 
-- **It's enforced, not remembered.** When a chat edits files or does research, a hook sends it back to update the state when the turn ends, at most once every 15 minutes. Nothing depends on the agent remembering, or on you running a command before you stop. [What the gate covers](#what-the-gate-covers) has the details.
+- **It's enforced, not remembered, and it stays out of your way.** When a chat edits files or does research, a hook asks it to update the state before it replies, at most once every 15 minutes, and a second hook catches a turn that ended without saving. The update happens quietly: replies don't report saves, trims or keep commits, and anything keep needs from you comes before the reply's last question, never after it. Nothing depends on the agent remembering, or on you running a command before you stop. [What the gate covers](#what-the-gate-covers) has the details.
 - **It's organized by feature, with tracks.** Several chats can work on one feature at once (tickets, a research topic, reviews), share its source docs, and pass decisions to each other through an Inbox.
 - **It's checked against reality.** Each save stamps the feature's repos with their commits, so the next chat sees what changed since (new commits, a different branch, uncommitted files) before it trusts the state.
 
@@ -44,7 +44,7 @@ Everything is plain Markdown in your project, and the hooks make no network or m
 
 - **Counted:** edits with Edit, Write and NotebookEdit to files in the project folder, including Claude Code worktrees under `.claude/worktrees/`; web fetches and searches; and subagents, except keep's `doc-expert`, which only reads the feature's own source docs. Edits inside `.keep/`, to the project's own `.claude/` settings, and to files outside the project folder, such as scratch files and Claude's files in `~/.claude/` (memory, plans), aren't counted.
 - **Not counted:** files changed through shell commands (`sed -i`, code generators, `git checkout`). Run `/keep:save` after work like that.
-- **How hard it pushes:** at the end of a turn after counted work, the Stop hook sends the chat back to update Current and Next step in STATE.md and record any new decision, as Stop hook feedback rather than an error. It asks at most once every 15 minutes after this chat's last save; another chat editing the same STATE.md, for example to add an Inbox line, doesn't reset that clock. So a chat's first working turn saves, and after that a chat that ends loses at most the last 15 minutes of reasoning; its code changes still show up in the next chat's freshness check. Once that time has passed, it asks at the end of every turn until the state is saved, even a turn that only answered a question. `KEEP_SAVE_MINUTES=0` asks after every working turn.
+- **How hard it pushes:** at the first counted work once a save is due, the edit hook asks the chat to update Current and Next step in STATE.md and record any new decision before it writes its reply. If the turn still ends without that, the Stop hook sends the chat back to do it, as Stop hook feedback rather than an error, and to end with nothing more, or with its question to you repeated so it stays last. It asks at most once every 15 minutes after this chat's last save; another chat editing the same STATE.md, for example to add an Inbox line, doesn't reset that clock. So a chat's first working turn saves, and after that a chat that ends loses at most the last 15 minutes of reasoning; its code changes still show up in the next chat's freshness check. Once that time has passed, it asks at the end of every turn until the state is saved, even a turn that only answered a question. `KEEP_SAVE_MINUTES=0` asks after every working turn.
 - **Worktree sessions:** freshness checks the worktree the session works in. In a `--worktree` or `EnterWorktree` session, Claude Code blocks edits to the main checkout, so if `.keep/` is inside the repo the worktree came from, the chat can read its track but can't save it. keep doesn't ask it to, and the agent says so in its first reply. Keep `.keep/` in a folder above your repos, or work on the track from a session in the main checkout.
 
 ## Commands
@@ -88,7 +88,7 @@ The keep folder is always `.keep/` in the project root. A chat that moves to ano
 
 | Variable | Default | What it sets |
 | --- | --- | --- |
-| `KEEP_SAVE_MINUTES` | 15 | Minutes between the Stop hook's requests to update STATE.md; 0 asks after every working turn |
+| `KEEP_SAVE_MINUTES` | 15 | Minutes between requests to update STATE.md; 0 asks after every working turn |
 | `COMPACT_LIMIT` | 2 | Compactions before the agent suggests saving and starting a fresh chat |
 | `KEEP_IDLE_DAYS` | 14 | Days without a state update before a track is flagged as idle |
 | `KEEP_STATE_DAYS` | 30 | Days before runtime files of old sessions are cleared |
@@ -128,7 +128,7 @@ keep's skills run their own scripts without asking. Saving STATE.md outside a sk
 
 ## Status
 
-Version 0.13.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2, and 19 behaviors are checked in real headless sessions with `claude plugin eval` (`bash tests/evals.sh`, cases in `plugins/keep/evals/`). `tests/live-checklist.md` lists the checks that still need a person: several messages in a row, `/clear`, resume, compaction and the app's permission prompts.
+Version 0.14.0, early ([changelog](CHANGELOG.md)). The hooks and scripts are tested with simulated hook inputs (`bash tests/hooks.test.sh`) on macOS's bash 3.2, and 20 behaviors are checked in real headless sessions with `claude plugin eval` (`bash tests/evals.sh`, cases in `plugins/keep/evals/`). `tests/live-checklist.md` lists the checks that still need a person: several messages in a row, `/clear`, resume, compaction and the app's permission prompts.
 
 ## Credits
 

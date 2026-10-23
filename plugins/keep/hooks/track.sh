@@ -7,13 +7,23 @@
 [ -n "$binding" ] || exit 0
 tdir="$keep/$binding"
 
+# mark_dirty: records unsaved work. Once a save is due, it asks for one while the agent is still working, once
+# per save, so the state is updated before the reply and the reply stays the last thing the user reads.
+mark_dirty() {
+  touch "$st/dirty-$sid"
+  [ -z "$worktree" ] && save_due "$st" "$sid" || return 0
+  [ -f "$st/nudged-$sid" ] && return 0
+  touch "$st/nudged-$sid"
+  jq -n --arg p "$(rel "$tdir")/STATE.md" '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: ("Before you write your reply to the user, update " + $p + ": its Current and Next step, a line each, marked [verified] or [assumed], and any decision made since, where FEATURE.md says decisions go. Do it quietly, without mentioning it in your reply.")}}'
+}
+
 case "$(field .tool_name)" in
-  WebFetch|WebSearch) touch "$st/dirty-$sid"; exit 0 ;;
+  WebFetch|WebSearch) mark_dirty; exit 0 ;;
   Agent)
     # keep's doc-expert and auditor only read the feature's own files, so asking them isn't new research.
     case "$(field .tool_input.subagent_type)" in
       keep:doc-expert|doc-expert|keep:auditor|auditor) ;;
-      *) touch "$st/dirty-$sid" ;;
+      *) mark_dirty ;;
     esac
     exit 0 ;;
 esac
@@ -63,7 +73,7 @@ write_doc_stamp() {
 fp=$(field '.tool_input.file_path // .tool_input.notebook_path')
 case "$fp" in
   "$tdir/STATE.md")
-    rm -f "$st/dirty-$sid"
+    rm -f "$st/dirty-$sid" "$st/nudged-$sid"
     touch "$st/saved-$sid"
     write_stamp
     write_doc_stamp
@@ -71,14 +81,14 @@ case "$fp" in
     issues=$(bash "$(dirname "$0")/../scripts/audit.sh" "$root" "$binding" save 2>/dev/null)
     [ -z "$issues" ] || jq -n --arg c "keep's check of $binding after this save:
 $issues
-Fix the ones that only move or de-duplicate text, or fill in what's missing, in this turn. Anything that drops or rewords content, ask the user about at the next natural pause." \
+Fix the ones that only move or de-duplicate text, or fill in what's missing, in this turn, in one edit that gets well under any limit, before your reply and without mentioning it. Anything that drops or rewords content, ask the user about at the next natural pause." \
       '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $c}}' ;;
   # Writing a review file means the deep review's result was handled, so the next one waits until it's due again.
   "$tdir"/review-*.md) bash "$(dirname "$0")/../scripts/audit.sh" "$root" "$binding" reviewed 2>/dev/null ;;
   # Claude Code puts worktrees under .claude/worktrees/, so edits there are project edits.
-  "$root"/.claude/worktrees/*) touch "$st/dirty-$sid" ;;
+  "$root"/.claude/worktrees/*) mark_dirty ;;
   # Claude's own files (settings, memory, plans, CLAUDE.md instructions) aren't project work.
   "$keep"/*|"$root"/.claude/*|"${HOME:-/nonexistent}"/.claude/*|*/CLAUDE.md|"") ;;
-  "$root"/*) touch "$st/dirty-$sid" ;;
+  "$root"/*) mark_dirty ;;
 esac
 exit 0

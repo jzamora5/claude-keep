@@ -171,7 +171,8 @@ ok "every skill that uses the project folder says what to do when it has no .kee
 rm -f "$st/track-mv1" "$st/dirty-mv1"; rm -rf "$M"
 
 echo "--- tracking and the Stop gate"
-edit() { hook track "{\"session_id\":\"$1\",\"tool_name\":\"$2\",\"tool_input\":{\"file_path\":\"$3\"}}"; }
+edit() { hook track "{\"session_id\":\"$1\",\"tool_name\":\"$2\",\"tool_input\":{\"file_path\":\"$3\"}}" >/dev/null; }
+edit_out() { hook track "{\"session_id\":\"$1\",\"tool_name\":\"$2\",\"tool_input\":{\"file_path\":\"$3\"}}"; }
 stop() { hook stop "{\"session_id\":\"$1\",\"stop_hook_active\":$2}"; }
 out=$(stop s1 false);                                  ok "stop passes while clean" '[ -z "$out" ]'
 edit s1 Edit "$K/shop/FEATURE.md";                     ok "editing keep files stays clean" '[ ! -f "$st/dirty-s1" ]'
@@ -238,6 +239,23 @@ out=$(bash "$H/scripts/freshness.sh" "$R" shop/tickets)
 ok "a reset to an older commit is reported" '[[ "$out" == *"api (main): moved back 1 commit(s)"* ]]'
 ok "rewriting a file that was already uncommitted is reported" '[[ "$out" == *"api (main): moved back 1 commit(s); uncommitted changes differ: 1 file(s) now, 1 then"* ]]'
 ok "an unchanged repo still says so" '[[ "$out" == *"web (main): no changes"* ]]'
+
+echo "--- asking for the save before the reply"
+printf 'shop/tickets\n' > "$st/track-v1"
+out=$(edit_out v1 Edit "$R/api/cart.js")
+ok "the first edit in a chat that hasn't saved asks for the save before the reply, quietly" '[[ "$(jq -r .hookSpecificOutput.additionalContext <<<"$out")" == "Before you write your reply to the user, update .keep/shop/tickets/STATE.md"*"without mentioning it in your reply." ]]'
+out=$(edit_out v1 Edit "$R/web/index.html")
+ok "only once until the next save" '[ -z "$out" ]'
+edit v1 Edit "$K/shop/tickets/STATE.md"
+out=$(edit_out v1 Edit "$R/api/cart.js")
+ok "after a save, not again until a save is due" '[ -z "$out" ] && [ -f "$st/dirty-v1" ]'
+out=$(KEEP_SAVE_MINUTES=0 hook track '{"session_id":"v1","tool_name":"WebFetch","tool_input":{}}')
+ok "once a save is due it asks again, after research too" '[[ "$out" == *"Before you write your reply to the user"* ]]'
+out=$(KEEP_SAVE_MINUTES=0 hook stop '{"session_id":"v1","stop_hook_active":false}')
+ok "the Stop hook catches a chat that didn't save, and asks for a quiet save that keeps the user's question last" '[[ "$out" == *"your reply is already written"* && "$out" == *"without writing anything about it to the user"* && "$out" == *"with that question again in one line, so it stays the last thing they see"* ]]'
+out=$(hook load '{"session_id":"s1","source":"resume"}')
+ok "a bound chat is told to keep the bookkeeping out of its replies" '[[ "$out" == *"update STATE.md before you write a reply, not after it, and don'"'"'t tell the user about saves"* ]]'
+rm -f "$st"/*-v1
 
 echo "--- compaction and /clear"
 out=$(hook load '{"session_id":"s1","source":"compact"}')

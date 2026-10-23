@@ -98,6 +98,15 @@ named_track() { [ -z "$2" ] || cat "$(name_file "$1" "$2")" 2>/dev/null || true;
 # CONTEXT.md and LESSONS.md carry over from one item to the next.
 starts_clean() { grep -qiE '^\*\*Each item starts clean:\*\*[[:space:]]*yes' "$1/$2/CONTEXT.md" 2>/dev/null; }
 
+# save_due <state dir> <session id>: true once KEEP_SAVE_MINUTES (default 15; 0 means always) have passed since
+# this chat last saved its track, or when it hasn't saved yet. The clock is this chat's own last save: another
+# chat editing the same STATE.md, for example to add an Inbox line, says nothing about this chat's work.
+save_due() {
+  local mins="${KEEP_SAVE_MINUTES:-15}"
+  [[ "$mins" =~ ^[0-9]+$ ]] || mins=15
+  [ "$mins" = 0 ] || [ ! -f "$1/saved-$2" ] || [ -n "$(find "$1/saved-$2" -mmin +"$mins" 2>/dev/null)" ]
+}
+
 # section_line <STATE.md> <heading>: the first entry under "## <heading>", skipping comments and blank lines.
 section_line() {
   awk -v h="## $2" 'index($0, "## ") == 1 { c = (index($0, h) == 1); next }

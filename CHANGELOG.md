@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.0 · 2026-10-23
+
+- The state is saved before the reply, not after it. Once a save is due, the first edit or research of a turn asks the agent to update `STATE.md` before it writes its reply, once per save. The Stop hook still catches a turn that ended without saving, and now asks for a quiet update that ends with no more text, or with the reply's question repeated so it stays the last thing you see.
+- keep's bookkeeping stays out of replies: no reports of saves, trims, fixes from the automatic check or keep commits. Anything keep needs from you goes in a line before the reply's last question, never after it. A size fix the check asks for is one edit, not several small trims.
+- The `/keep:digest` suggestion appears only in the status reply of a plain `/keep:start`, not in replies to a request.
+
 ## 0.13.0 · 2026-10-23
 
 - A track can start each item clean: `**Each item starts clean:** yes` in its `CONTEXT.md`, for a stream of separate items such as pull request reviews. Only `CONTEXT.md` and the track's `LESSONS.md` carry over from one item to the next, and both load at every chat start.
