@@ -9,14 +9,14 @@ Run each command below exactly as written, one per call, apart from that folder 
 
 Arguments: $ARGUMENTS
 
-The keep folder is `${CLAUDE_PROJECT_DIR}/.keep/`. Each feature is a folder in it, and each track is a folder in its feature. The first word of the arguments names the track: `<feature>/<track>`, or a single name when it matches exactly one track (a feature that has only one track, or else a track name used by only one feature). Anything after it is the user's request.
+The keep folder is `${CLAUDE_PROJECT_DIR}/.keep/`. Each feature is a folder in it, and each track is a folder in its feature. The first word of the arguments is the track's full name, `<feature>/<track>`; a bare track or feature name doesn't count. Anything after it is the user's request.
 
 To bind the chat: `bash "${CLAUDE_SKILL_DIR}/../../scripts/bind.sh" "${CLAUDE_PROJECT_DIR}" "${CLAUDE_SESSION_ID}" "<name>"`. It prints the track it bound, or why it couldn't, and a note when keep's hooks can't run; pass any note on to the user.
 - If it says the chat has unsaved work on another track, run `/keep:save` for that track first, then bind again. If the user says that work doesn't belong to that track, unbind first instead.
 - `off` as the name unbinds the chat. Tell the user if its work since the last save wasn't saved, and stop there.
 
-**If no name was given, or it matches no track or several:**
-1. List the tracks, their current work or goal, and the command that starts each: `bash "${CLAUDE_SKILL_DIR}/../../scripts/status.sh" "${CLAUDE_PROJECT_DIR}"`. If the name matched several, say which ones.
+**If no name was given, or it isn't a track's full name:**
+1. List the tracks, their current work or goal, and the command that starts each: `bash "${CLAUDE_SKILL_DIR}/../../scripts/status.sh" "${CLAUDE_PROJECT_DIR}"`. If a bare name was given, say which full names it could mean.
 2. Ask which one to use. Once the user picks one, bind it and continue under "Once bound".
 3. If none fits, propose a new track in one message, and create nothing until the user confirms or corrects it:
    - Its name, `<feature>/<track>`, in an existing feature when one fits. Use short, lowercase, hyphenated words named after the product or topic, so the name is easy to guess (for example `checkout/discounts`), not ticket keys. Names start with a letter or digit and use only letters, digits, `.`, `_` and `-`. A track can't be named `off`.

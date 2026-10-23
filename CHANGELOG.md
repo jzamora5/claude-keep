@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.0 · 2026-10-23
+
+**Breaking:** `/keep:start` takes only a track's full name, `<feature>/<track>`. A bare name such as `/keep:start tickets` no longer binds, even when only one track has it: it was ambiguous to read, and could start meaning another track once one was added. The start skill lists the full names it could mean instead. Every listing, the index, `/keep:current` and the save and compaction messages show the full command.
+
+- `/keep:rename` updates every reference to the old name inside `.keep/`: full names, `.keep/` paths and headers, including other tracks' Inbox lines. It leaves the archive alone, and a feature's name used as a plain word. The agent then updates the project's `CLAUDE.md` files and its saved notes, asks nothing unless the names are unclear, writes nothing about the rename in `STATE.md`, and replies in three lines.
+- Edits to a `CLAUDE.md` file no longer count as project work.
+
 ## 0.9.0 · 2026-10-23
 
 - A quick check runs after every save, at every chat start and right after a chat is bound. It flags a `STATE.md` over its size, an empty Next step, unmarked Current lines, tickets without an acceptance check, leftover placeholders, files listed to read that don't exist or are large, lines copied into both state and notes, and Inbox items older than two weeks. It skips tracks whose files haven't changed that day and raises each issue once. A full check of a large track takes about 0.2 seconds; an unchanged one, about 0.05.

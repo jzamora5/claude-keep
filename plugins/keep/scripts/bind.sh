@@ -38,7 +38,7 @@ fi
 before=$(cat "$st/track-$sid" 2>/dev/null || true)
 target=$(bind_chat "$keep" "$sid" "$name")
 case $? in
-  1) echo "No single track matches \"$name\"." >&2; exit 1 ;;
+  1) echo "No track is named \"$name\". Use a track's full name, <feature>/<track>." >&2; exit 1 ;;
   2) echo "This chat has unsaved work on $target. Save it there first with /keep:save, or unbind with /keep:start off if it doesn't belong there, then bind again." >&2; exit 2 ;;
 esac
 if [ -n "$own" ]; then

@@ -49,26 +49,19 @@ ok "bind names the chat after the track" '[ "$(jq -r .hookSpecificOutput.session
 ok "bind records the binding" '[ "$(cat "$st/track-s1")" = shop/tickets ]'
 out=$(hook bind '{"session_id":"s2","prompt":"/start shop/research"}')
 ok "the unprefixed form binds too" '[ "$(cat "$st/track-s2" 2>/dev/null)" = shop/research ]'
-out=$(hook bind '{"session_id":"s3","prompt":"/keep:start solo"}')
-ok "a feature with one track binds to it" '[ "$(cat "$st/track-s3" 2>/dev/null)" = solo/main ]'
-out=$(hook bind '{"session_id":"r1","prompt":"/keep:start research"}')
-ok "a track name used by one feature binds to that track" '[ "$(cat "$st/track-r1" 2>/dev/null)" = shop/research ] && [ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = shop/research ]'
-hook bind '{"session_id":"r2","prompt":"/keep:start main"}' >/dev/null
-ok "so does the only track of another feature" '[ "$(cat "$st/track-r2" 2>/dev/null)" = solo/main ]'
-mkdir -p "$K/other/tickets" && cp "$K/solo/main/STATE.md" "$K/other/tickets/STATE.md"
-out=$(hook bind '{"session_id":"r3","prompt":"/keep:start tickets"}')
-ok "a track name used by two features doesn't bind" '[ -z "$out" ] && [ ! -f "$st/track-r3" ]'
+for p in "/keep:start solo" "/keep:start research" "/keep:start main" "/keep:start research fix the totals"; do
+  hook bind "{\"session_id\":\"r1\",\"prompt\":\"$p\"}" >/dev/null
+  ok "a bare name doesn't bind, even when one track has it: ${p#/keep:start }" '[ ! -f "$st/track-r1" ]'
+done
+hook bind '{"session_id":"s3","prompt":"/keep:start solo/main"}' >/dev/null
 out=$(bash "$H/scripts/status.sh" "$R")
-ok "the listing then falls back to full names for those tracks" '[[ "$out" == *"shop/tickets: Ticket: T-7 checkout fix (start: /keep:start shop/tickets)"* && "$out" == *"other/tickets: Ticket: none (start: /keep:start other)"* ]]'
-rm -rf "$K/other"; rm -f "$st/track-r1" "$st/track-r2"
+ok "the listing gives each track's full start command" '[[ "$out" == *"shop/tickets: Ticket: T-7 checkout fix (start: /keep:start shop/tickets)"* && "$out" == *"(start: /keep:start solo/main)"* ]]'
 out=$(hook bind '{"session_id":"s8","prompt":"/keep:start shop/tickets and continue"}')
 ok "words after the track are fine" '[ "$(cat "$st/track-s8" 2>/dev/null)" = shop/tickets ]'; rm -f "$st/track-s8"
-hook bind '{"session_id":"s8","prompt":"/keep:start solo fix the totals"}' >/dev/null
-ok "so are words after a single name" '[ "$(cat "$st/track-s8" 2>/dev/null)" = solo/main ]'; rm -f "$st/track-s8"
 
 echo "--- binding from the start skill"
-out=$(bash "$H/scripts/bind.sh" "$R" b1 research)
-ok "the bind script binds a single name" '[ "$out" = "Bound this chat to shop/research." ] && [ "$(cat "$st/track-b1")" = shop/research ]'
+out=$(bash "$H/scripts/bind.sh" "$R" b1 shop/research)
+ok "the bind script binds a full name" '[ "$out" = "Bound this chat to shop/research." ] && [ "$(cat "$st/track-b1")" = shop/research ]'
 out=$(hook bind '{"session_id":"b1","prompt":"yes, go ahead"}')
 ok "the next prompt names the chat after the track" '[ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = shop/research ] && [ ! -f "$st/title-b1" ]'
 out=$(hook bind '{"session_id":"b1","prompt":"and then this"}')
@@ -77,17 +70,17 @@ bash "$H/scripts/bind.sh" "$R" b1 shop/research >/dev/null
 ok "binding the same track again doesn't rename the chat" '[ ! -f "$st/title-b1" ]'
 out=$(hook bind '{"session_id":"b2","prompt":"/keep:start shop/tickets"}'); bash "$H/scripts/bind.sh" "$R" b2 shop/tickets >/dev/null
 ok "after a typed /keep:start, the skill's bind is a no-op" '[ "$(cat "$st/track-b2")" = shop/tickets ] && [ ! -f "$st/title-b2" ]'
-for a in "b1 shop" "b1 nope" "b1 ../shop/tickets" "b1 shop/tickets/extra" '${CLAUDE_SESSION_ID} research' "b3"; do
+for a in "b1 shop" "b1 research" "b1 nope" "b1 ../shop/tickets" "b1 shop/tickets/extra" '${CLAUDE_SESSION_ID} shop/research' "b3"; do
   out=$(bash "$H/scripts/bind.sh" "$R" $a 2>&1; echo "exit=$?")
   ok "the bind script refuses: $a" '[[ "$out" == *"exit=1"* ]] && [ "$(cat "$st/track-b1")" = shop/research ] && [ ! -f "$st/track-b3" ]'
 done
 touch "$st/dirty-b2"
-out=$(hook bind '{"session_id":"b2","prompt":"/keep:start research"}')
+out=$(hook bind '{"session_id":"b2","prompt":"/keep:start shop/research"}')
 ok "a typed switch with unsaved work doesn't rebind" '[ -z "$out" ] && [ "$(cat "$st/track-b2")" = shop/tickets ]'
-out=$(bash "$H/scripts/bind.sh" "$R" b2 research 2>&1; echo "exit=$?")
+out=$(bash "$H/scripts/bind.sh" "$R" b2 shop/research 2>&1; echo "exit=$?")
 ok "and the bind script says to save it there first" '[[ "$out" == *"unsaved work on shop/tickets. Save it there first"* && "$out" == *"exit=2"* ]] && [ "$(cat "$st/track-b2")" = shop/tickets ]'
 rm -f "$st/dirty-b2"
-out=$(bash "$H/scripts/bind.sh" "$R" b2 research)
+out=$(bash "$H/scripts/bind.sh" "$R" b2 shop/research)
 ok "once it's saved, the chat switches" '[ "$out" = "Bound this chat to shop/research." ] && [ "$(cat "$st/title-b2")" = shop/research ]'
 touch "$st/dirty-b2"
 out=$(bash "$H/scripts/bind.sh" "$R" b2 off)
@@ -103,9 +96,9 @@ out=$(hook bind '{"session_id":"b4","prompt":"/keep:start off"}')
 ok "a typed /keep:start off unbinds and renames at once" '[ ! -f "$st/track-b4" ] && [ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = "shop/tickets (unbound)" ]'
 B=$(mktemp -d "${TMPDIR:-/tmp}/keep-nojq.XXXXXX")
 for c in dirname mkdir cat basename wc tr rm; do ln -s "$(command -v "$c")" "$B/$c"; done
-out=$(PATH="$B" /bin/bash "$H/scripts/bind.sh" "$R" j1 research)
+out=$(PATH="$B" /bin/bash "$H/scripts/bind.sh" "$R" j1 shop/research)
 ok "without jq, binding says keep's hooks are off" '[[ "$out" == *"Bound this chat to shop/research."* && "$out" == *"jq isn'"'"'t installed"* ]]'
-out=$(bash "$H/scripts/bind.sh" "$R" j2 research)
+out=$(bash "$H/scripts/bind.sh" "$R" j2 shop/research)
 ok "with jq it doesn't" '[[ "$out" != *jq* ]]'
 rm -rf "$B"; rm -f "$st/track-b1" "$st/track-b2" "$st/track-j1" "$st/track-j2" "$st"/title-*
 ok "the agent can run every skill, close included, when the user asks" '! grep -q "disable-model-invocation" "$H"/skills/*/SKILL.md && grep -q "asks in words to close one; never on your own" "$H/skills/close/SKILL.md"'
@@ -117,14 +110,14 @@ done
 echo "--- loading"
 out=$(hook load '{"session_id":"s1","source":"resume"}')
 ok "bound chat loads feature, context and state" '[[ "$out" == *"Active track: shop/tickets"* && "$out" == *"**Repos:** api, web"* && "$out" == *"ship tickets"* && "$out" == *"T-7 checkout fix"* ]]'
-ok "it gives the short command that starts the track in a new chat" '[[ "$out" == *"Active track: shop/tickets (a new chat starts it with /keep:start tickets)"* ]]'
+ok "it gives the full command that starts the track in a new chat" '[[ "$out" == *"Active track: shop/tickets (a new chat starts it with /keep:start shop/tickets)"* ]]'
 ok "it asks for decisions to be recorded when they're made" '[[ "$out" == *"Record each decision as soon as it'"'"'s made"* ]]'
 ok "without a stamp it says nothing was checked against git" '[[ "$out" == *"No git stamp yet"* ]]'
 ok "no compaction notes on resume" '[[ "$out" != *compacted* ]]'
 
 echo "--- the current track"
 out=$(bash "$H/scripts/current.sh" "$R" s1)
-ok "current shows this chat's track, its current work, next step and start command" '[[ "$out" == *"This chat is on shop/tickets. A new chat starts it with /keep:start tickets."* && "$out" == *"Current: Ticket: T-7 checkout fix"* && "$out" == *"Next step: edit api/cart.js applyDiscount"* ]]'
+ok "current shows this chat's track, its current work, next step and start command" '[[ "$out" == *"This chat is on shop/tickets. A new chat starts it with /keep:start shop/tickets."* && "$out" == *"Current: Ticket: T-7 checkout fix"* && "$out" == *"Next step: edit api/cart.js applyDiscount"* ]]'
 out=$(bash "$H/scripts/current.sh" "$R" nobody)
 ok "an unbound chat is told so, with the tracks to pick from" '[[ "$out" == *"This chat isn'"'"'t bound to a track."* && "$out" == *"- shop/research:"* ]]'
 out=$(bash "$H/scripts/current.sh" "$R" "../x" 2>&1; echo "exit=$?")
@@ -146,7 +139,7 @@ ok "after /clear the same name finds the track again" '[[ "$out" == *"Active tra
 hook load '{"session_id":"u3","source":"resume","session_title":"shop/research"}' >/dev/null
 ok "a title keep set isn't taken for the user's name" '[ ! -f "$st/name-u3" ] && [ "$(cat "$st/track-u3")" = shop/research ]'
 hook load '{"session_id":"u4","source":"startup","session_title":"My review"}' >/dev/null
-bash "$H/scripts/bind.sh" "$R" u4 research >/dev/null
+bash "$H/scripts/bind.sh" "$R" u4 shop/research >/dev/null
 ok "the start skill's bind keeps a named chat's name too" '[ ! -f "$st/title-u4" ] && [ "$(cat "$(nf "My review")")" = shop/research ]'
 out=$(hook bind '{"session_id":"u1","prompt":"/keep:start off"}')
 hook load '{"session_id":"u5","source":"clear","session_title":"CASH-508 withdrawal"}' >/dev/null
@@ -180,6 +173,7 @@ edit s1 Edit "$K/shop/FEATURE.md";                     ok "editing keep files st
 edit s1 Edit "$K/shop/research/STATE.md";              ok "editing another track's state stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Edit "$R/.claude/settings.json";               ok "editing the project's .claude stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Write "$HOME/.claude/projects/p/memory/MEMORY.md"; ok "writing Claude's own memory or plans stays clean" '[ ! -f "$st/dirty-s1" ]'
+edit s1 Edit "$R/CLAUDE.md";                           ok "editing a CLAUDE.md stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Write "/tmp/keep-elsewhere/scratch-note.md";   ok "an edit outside the project folder stays clean" '[ ! -f "$st/dirty-s1" ]'
 edit s1 Edit "$R/.claude/worktrees/w1/api/cart.js";    ok "an edit in a Claude Code worktree marks the chat dirty" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
 edit s1 Edit "$R/api/.claude/notes.md";                ok "a repo's own .claude folder counts as project files" '[ -f "$st/dirty-s1" ]'; rm -f "$st/dirty-s1"
@@ -244,7 +238,7 @@ echo "--- compaction and /clear"
 out=$(hook load '{"session_id":"s1","source":"compact"}')
 ok "the first compaction is counted" '[[ "$out" == *"compacted 1 time"* && "$out" == *"Read on start"* && "$out" != *"/keep:save"* ]]'
 out=$(hook load '{"session_id":"s1","source":"compact"}')
-ok "the second asks for /keep:save and a fresh chat" '[[ "$out" == *"compacted 2 time"* && "$out" == *"/keep:save"* && "$out" == *"start a new chat with /keep:start tickets"* ]]'
+ok "the second asks for /keep:save and a fresh chat" '[[ "$out" == *"compacted 2 time"* && "$out" == *"/keep:save"* && "$out" == *"start a new chat with /keep:start shop/tickets"* ]]'
 echo bogus > "$st/compactions-s1"
 out=$(hook load '{"session_id":"s1","source":"compact"}')
 ok "a corrupt counter restarts at 1" '[[ "$out" == *"compacted 1 time"* ]]'
@@ -279,7 +273,7 @@ printf '# Track: shop/tickets\n**Goal:** ship tickets\n' > "$K/shop/tickets/CONT
 echo "--- index, idle tracks and housekeeping"
 ago() { date -v-"$1"d +%Y%m%d%H%M 2>/dev/null || date -d "$1 days ago" +%Y%m%d%H%M; }
 ok "the index is generated at chat start" '[ -f "$K/INDEX.md" ] && grep -q "| shop/research | Ticket: pricing question |" "$K/INDEX.md"'
-ok "the index gives the shortest start command for each track" 'grep -q "\`/keep:start research\`" "$K/INDEX.md" && grep -q "\`/keep:start main\`" "$K/INDEX.md" && grep -q "\`/keep:start tickets\`" "$K/INDEX.md"'
+ok "the index gives each track's full start command" 'grep -q "\`/keep:start shop/research\`" "$K/INDEX.md" && grep -q "\`/keep:start solo/main\`" "$K/INDEX.md" && grep -q "\`/keep:start shop/tickets\`" "$K/INDEX.md"'
 bash "$H/scripts/index.sh" "$R"; bash "$H/scripts/index.sh" "$R"
 ok "git ignores the index, listed once" '[ "$(grep -cx INDEX.md "$K/.gitignore")" = 1 ]'
 touch -t 202001010000 "$K/INDEX.md"
@@ -290,7 +284,7 @@ edit s1 Edit "$K/shop/tickets/STATE.md"
 ok "saving a changed state refreshes the index" 'grep -q "line number one that" "$K/INDEX.md"'
 touch -t "$(ago 20)" "$K/solo/main/STATE.md"
 out=$(bash "$H/scripts/status.sh" "$R")
-ok "a track untouched for 14+ days is flagged in the listing" '[[ "$out" == *"solo/main: Ticket: none (start: /keep:start main) (idle 20 days; close it with /keep:close solo/main)"* ]]'
+ok "a track untouched for 14+ days is flagged in the listing" '[[ "$out" == *"solo/main: Ticket: none (start: /keep:start solo/main) (idle 20 days; close it with /keep:close solo/main)"* ]]'
 bash "$H/scripts/index.sh" "$R"
 ok "and in the index" 'grep -q "idle 20 days: \`/keep:close solo/main\`?" "$K/INDEX.md"'
 out=$(KEEP_IDLE_DAYS=30 bash "$H/scripts/status.sh" "$R")
@@ -342,7 +336,7 @@ done
 
 echo "--- helper scripts"
 out=$(bash "$H/scripts/status.sh" "$R")
-ok "status lists the tracks still open" '[ "$out" = "- shop/tickets: [assumed] a very long current line number one that keeps going — with · marks (start: /keep:start shop)" ]'
+ok "status lists the tracks still open" '[ "$out" = "- shop/tickets: [assumed] a very long current line number one that keeps going — with · marks (start: /keep:start shop/tickets)" ]'
 O=$(mktemp -d "${TMPDIR:-/tmp}/keep-none.XXXXXX")
 out=$(cd "$O" && bash "$H/scripts/status.sh" "$R/api"); rm -rf "$O"
 ok "status says when a folder has no keep folder" '[[ "$out" == *"No keep folder at $R/api/.keep"* ]]'
@@ -397,7 +391,7 @@ mkdir -p "$G/.keep/app/main"
 printf '# Feature: app\n\n**Repos:** .\n' > "$G/.keep/app/FEATURE.md"
 state app/main "none" "none" > "$G/.keep/app/main/STATE.md"
 g() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$G" "$H/hooks/$1.sh"; }
-g bind '{"session_id":"g","prompt":"/keep:start app"}' >/dev/null
+g bind '{"session_id":"g","prompt":"/keep:start app/main"}' >/dev/null
 g track "{\"session_id\":\"g\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$G/.keep/app/main/STATE.md\"}}"
 ok "the stamp doesn't count keep's own files as changes" '[ "$(cut -f4 "$G/.keep/.state/stamp-app@main")" = 0 ]'
 later=$(date -v+2M +%Y%m%d%H%M 2>/dev/null || date -d '2 minutes' +%Y%m%d%H%M)
@@ -433,7 +427,9 @@ for t in tickets research; do
   state "shop/$t" none none > "$NK/shop/$t/STATE.md"
   printf '# Track: shop/%s\n\n**Goal:** %s work\n' "$t" "$t" > "$NK/shop/$t/CONTEXT.md"
 done
-printf -- '- 2026-10-22 · from shop/tickets · a note\n' >> "$NK/shop/research/STATE.md"
+printf -- '- 2026-10-22 · from shop/tickets · see .keep/shop/tickets/NOTES.md\n- shop/tickets,shop/tickets; shop/ticketsx and api/shop/tickets stay\n' >> "$NK/shop/research/STATE.md"
+printf 'shop is a plain word here; .keep/shop/FEATURE.md\n' >> "$NK/shop/FEATURE.md"
+mkdir -p "$NK/_archive/shop/old"; printf 'from shop/tickets\n' > "$NK/_archive/shop/old/STATE.md"
 printf 'shop/tickets\n' > "$NS/track-n1"; printf 'shop/tickets\n' > "$NS/track-n2"; printf 'shop/research\n' > "$NS/track-n3"
 printf 'x\n' > "$NS/stamp-shop@tickets"; printf '1 2 x\n' > "$NS/deep-shop@tickets"
 printf 'shop/tickets\n' > "$NS/track-n4"; printf 'Review chat\n' > "$NS/name-n4"
@@ -445,11 +441,13 @@ ok "a chat the user named stays bound, keeps its name, and its remembered track 
 ok "its stamp and deep-review record follow it" '[ -f "$NS/stamp-shop@build" ] && [ ! -e "$NS/stamp-shop@tickets" ] && [ -f "$NS/deep-shop@build" ] && [ ! -e "$NS/deep-shop@tickets" ]'
 ok "its stamp follows it" '[ -f "$NS/stamp-shop@build" ] && [ ! -e "$NS/stamp-shop@tickets" ]'
 ok "the index lists the new name" 'grep -q "| shop/build |" "$NK/INDEX.md" && ! grep -q "shop/tickets |" "$NK/INDEX.md"'
-ok "other mentions of the old name are listed, not changed" '[[ "$out" == *"Still mention shop/tickets:"*".keep/shop/research/STATE.md"* ]] && grep -q "from shop/tickets" "$NK/shop/research/STATE.md"'
+ok "every reference to it in the keep folder is updated" 'grep -q "from shop/build · see .keep/shop/build/NOTES.md" "$NK/shop/research/STATE.md" && grep -q "^- shop/build,shop/build; shop/ticketsx and api/shop/tickets stay" "$NK/shop/research/STATE.md" && [[ "$out" == *"Files updated to the new name: 3"* ]]'
+ok "but not in the archive" 'grep -qx "from shop/tickets" "$NK/_archive/shop/old/STATE.md"'
 out=$(printf '{"session_id":"n1","prompt":"carry on"}' | CLAUDE_PROJECT_DIR="$N" "$H/hooks/bind.sh")
 ok "the bind hook renames that chat at its next message" '[ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = shop/build ] && [ ! -f "$NS/title-n1" ]'
 out=$(bash "$H/scripts/rename.sh" "$N" shop store)
 ok "renaming a feature moves it and every binding and stamp under it" '[ -f "$NK/store/build/STATE.md" ] && [ ! -e "$NK/shop" ] && [ "$(cat "$NS/track-n2")" = store/build ] && [ "$(cat "$NS/track-n3")" = store/research ] && [ -f "$NS/stamp-store@build" ] && head -1 "$NK/store/FEATURE.md" | grep -qx "# Feature: store" && head -1 "$NK/store/DECISIONS.md" | grep -qx "# Decisions: store" && head -1 "$NK/store/research/STATE.md" | grep -qx "# State: store/research"'
+ok "and updates its tracks' full names and paths, not the feature's name as a word" 'grep -q "from store/build · see .keep/store/build/NOTES.md" "$NK/store/research/STATE.md" && grep -qx "shop is a plain word here; .keep/store/FEATURE.md" "$NK/store/FEATURE.md"'
 for a in "store/nope x" "store/build research" "store/build off" "store/build ../x" "nope x" "store research"; do
   mkdir -p "$NK/research"
   out=$(bash "$H/scripts/rename.sh" "$N" $a 2>&1; echo "exit=$?")

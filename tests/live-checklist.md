@@ -35,7 +35,7 @@ A plugin installed from a local folder is read from that folder, so changes take
 | 11 | `/keep:save` | `STATE.md` is updated with `[verified]`/`[assumed]` marks and a concrete next step, and `.keep` gets a commit |
 | 12 | `/keep:digest demo` | `.keep/demo/DIGEST.md` exists and starts with "Built from docs/spec.md" |
 | 13 | Ask "Can codes stack? Ask doc-expert." | It cites D-001 and the rejected option (stacking) |
-| 14 | In a second chat, `/keep:start research settle Q-1` | It binds `demo/research` and works on Q-1 without waiting; a new entry in `DECISIONS.md` with rejected options, and an Inbox line in `demo/tickets` if it affects tickets |
+| 14 | In a second chat, `/keep:start demo/research settle Q-1` | It binds `demo/research` and works on Q-1 without waiting; a new entry in `DECISIONS.md` with rejected options, and an Inbox line in `demo/tickets` if it affects tickets |
 | 15 | Reopen the first chat later (resume) | It's still bound to `demo/tickets` |
 | 16 | Fork a bound chat | Note which happens: the fork is told no track is bound, or it keeps the chat title and is rebound to the same track, which leaves two chats on one track |
 | 17 | In a new chat, agree to a suggested track, then `/clear` right away with no other message | Note whether the new chat is still bound: the chat is renamed only at the next message, so it may not be |
@@ -47,8 +47,8 @@ A plugin installed from a local folder is read from that folder, so changes take
 | 23 | In a chat bound to `demo/tickets`, edit a file, then say "switch to the research track" | It saves the edit to `demo/tickets` first, then binds `demo/research` |
 | 24 | `/keep:start off` | The chat is unbound, renamed `demo/research (unbound)`, and isn't rebound after `/clear` |
 | 25 | In default permission mode, `/keep:start demo/tickets` | No permission prompt for keep's own scripts |
-| 26 | In a new chat, `/rename my-review`, then `/keep:start tickets`, then `/clear` and ask "which workspace is this?" | The chat keeps the name `my-review` throughout, and after `/clear` it's still on `demo/tickets` |
-| 27 | In a chat, `/keep:start tickets` on a track with an empty Next step | The agent fills in the Next step at its first save, or mentions it once, after answering |
+| 26 | In a new chat, `/rename my-review`, then `/keep:start demo/tickets`, then `/clear` and ask "which workspace is this?" | The chat keeps the name `my-review` throughout, and after `/clear` it's still on `demo/tickets` |
+| 27 | In a chat, `/keep:start demo/tickets` on a track with an empty Next step | The agent fills in the Next step at its first save, or mentions it once, after answering |
 | 28 | `/keep:audit demo/tickets` in the app | A short list comes back in the chat, each item marked lossless or needing you. The lossless ones are applied; the rest are saved in `review-<date>.md` with an Inbox line, and nothing else changes until you agree |
 | 29 | Start a chat on a track whose notes grew by 10 KB | It starts the deep review in the background and keeps working; when the list comes back, lossless items are applied, the rest land in `review-<date>.md` with an Inbox line, and a new chat on the track doesn't start another review |
 

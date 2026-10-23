@@ -5,4 +5,4 @@ timeout_seconds: 600
 allowed_tools: [Read, Glob, Grep, Skill]
 ---
 
-/keep:start tickets T-1 is finished, please wrap it up.
+/keep:start demo/tickets T-1 is finished, please wrap it up.

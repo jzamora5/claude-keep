@@ -59,8 +59,8 @@ Fix the ones that only move or de-duplicate text, or fill in what's missing, in 
   "$tdir"/review-*.md) bash "$(dirname "$0")/../scripts/audit.sh" "$root" "$binding" reviewed 2>/dev/null ;;
   # Claude Code puts worktrees under .claude/worktrees/, so edits there are project edits.
   "$root"/.claude/worktrees/*) touch "$st/dirty-$sid" ;;
-  # Claude's own files (settings, memory, plans) aren't project work.
-  "$keep"/*|"$root"/.claude/*|"${HOME:-/nonexistent}"/.claude/*|"") ;;
+  # Claude's own files (settings, memory, plans, CLAUDE.md instructions) aren't project work.
+  "$keep"/*|"$root"/.claude/*|"${HOME:-/nonexistent}"/.claude/*|*/CLAUDE.md|"") ;;
   "$root"/*) touch "$st/dirty-$sid" ;;
 esac
 exit 0

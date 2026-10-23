@@ -5,4 +5,4 @@ timeout_seconds: 600
 allowed_tools: [Read, Glob, Grep, Skill]
 ---
 
-/keep:start tickets Add a one-line comment at the top of api/app.js saying what the file does. That's all for now.
+/keep:start demo/tickets Add a one-line comment at the top of api/app.js saying what the file does. That's all for now.

@@ -18,4 +18,4 @@ Update the bound track's STATE.md in `${CLAUDE_PROJECT_DIR}/.keep/<feature>/<tra
 7. If keep's check listed issues for this track in this chat, fix now the ones that only move or de-duplicate text or fill in what's missing, and list the others for the user in your reply. If it listed none, skip this.
 8. If the user corrected the same mistake more than once, propose a one-line rule for FEATURE.md or CONTEXT.md. Show it; don't add it silently.
 9. Don't commit unfinished code without asking. If the keep folder is its own git repo, commit it: `git -C "${CLAUDE_PROJECT_DIR}/.keep" add -A && git -C "${CLAUDE_PROJECT_DIR}/.keep" commit -m "<feature>/<track>: save"`.
-10. Reply with "Saved.", then one line for each decision, Inbox line or rule you wrote, then "Type /clear, or start a new chat with /keep:start <name>." with the shortest start command you know for the track; `<feature>/<track>` always works.
+10. Reply with "Saved.", then one line for each decision, Inbox line or rule you wrote, then "Type /clear, or start a new chat with /keep:start <feature>/<track>." with the track's full name.

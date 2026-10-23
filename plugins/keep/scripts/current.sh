@@ -17,6 +17,6 @@ if [ -z "$b" ] || [ ! -f "$keep/$b/STATE.md" ]; then
   exit 0
 fi
 s="$keep/$b/STATE.md"
-echo "This chat is on $b. A new chat starts it with /keep:start $(start_arg "$keep" "${b%%/*}" "${b#*/}")."
+echo "This chat is on $b. A new chat starts it with /keep:start $b."
 echo "Current: $(current_line "$s" | grep . || echo "nothing written yet")"
 echo "Next step: $(section_line "$s" "Next step" | grep . || echo "none written yet")"

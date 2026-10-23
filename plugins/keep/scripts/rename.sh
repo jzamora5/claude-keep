@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # rename.sh <project root> <feature>[/<track>] <new name>: rename a track within its feature, or a whole
-# feature. Chats bound to it stay bound and get the new name at their next message, its git stamps follow it,
-# and the index is refreshed. Other mentions of the old name are listed, not changed.
+# feature. Every reference to it inside the keep folder is updated, chats bound to it stay bound (those named
+# after it get the new name at their next message), its git stamps and review record follow it, and the index
+# is refreshed.
 set -uo pipefail
 . "$(dirname "$0")/common.sh"
 root=$(keep_root "${1:?project root}" "$PWD")
@@ -31,12 +32,26 @@ fi
 mv "$keep/$old" "$keep/$to" || exit 1
 echo "Renamed $(rel "$keep/$old") to $(rel "$keep/$to")"
 
-# The headers keep's templates write ("# State: <feature>/<track>" and the like) name the track or feature.
-old_re="${old//./\\.}"
-for f in "$keep/$to"/*.md "$keep/$to"/*/*.md; do
-  [ -f "$f" ] || continue
-  sed -E "s,^(# (State|Track|Notes|Feature|Decisions): )$old_re([^A-Za-z0-9._-]|$),\\1$to\\3," "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-done
+# References are full names (<feature>/<track>) and .keep/ paths; a feature's bare name is too often a plain word
+# to replace, except in the headers keep's templates write.
+re_() { printf '%s' "${1//./\\.}"; }
+args=(-e "s,\\.keep/$(re_ "$old")(/|[^A-Za-z0-9._-]|$),.keep/$to\\1,g")
+if [ -n "$track" ]; then
+  args+=(-e "s,(^|[^A-Za-z0-9._/-])$(re_ "$old")(/|[^A-Za-z0-9._-]|$),\\1$to\\2,g")
+else
+  args+=(-e "s,^(# (Feature|Decisions): )$(re_ "$old")([^A-Za-z0-9._-]|$),\\1$to\\3,")
+  for t in $(list_tracks "$keep" "$to"); do
+    args+=(-e "s,(^|[^A-Za-z0-9._/-])$(re_ "$old/$t")(/|[^A-Za-z0-9._-]|$),\\1$to/$t\\2,g")
+  done
+fi
+updated=0
+while IFS= read -r f; do
+  # Twice: a match takes the character after it, so a name one character after another is seen only on a second
+  # pass.
+  sed -E "${args[@]}" "${args[@]}" "$f" > "$f.tmp" || { rm -f "$f.tmp"; continue; }
+  if cmp -s "$f" "$f.tmp"; then rm -f "$f.tmp"; else mv "$f.tmp" "$f"; updated=$((updated + 1)); fi
+done < <(find "$keep" -name '*.md' -not -path "$keep/.git/*" -not -path "$keep/.state/*" -not -path "$keep/_archive/*" -not -name INDEX.md)
+echo "Files updated to the new name: $updated"
 
 kept=0
 renamed=0
@@ -83,10 +98,4 @@ else
 fi
 
 bash "$(dirname "$0")/index.sh" "$root"
-
-# A feature's name is often a plain word, so only its "<feature>/" paths are looked for.
-needle="$old"
-[ -z "$track" ] && needle="$old/"
-mentions=$(grep -rlF -- "$needle" "$keep" --exclude-dir=.git --exclude-dir=.state --exclude=INDEX.md 2>/dev/null | sed "s#^$root/##" | sort)
-[ -n "$mentions" ] && printf 'Still mention %s:\n%s\n' "$needle" "$mentions"
 exit 0

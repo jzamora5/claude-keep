@@ -103,15 +103,14 @@ if [ -z "$binding" ] || [ ! -f "$keep/$binding/STATE.md" ]; then
     add "Tracks, their current work or goal, and how to start each:"
     add "$list"
   fi
-  add "The first time a message of the user starts work (a change, research or a ticket, not a quick question), ask once whether to keep that work in a track: name the matching track, list the candidates if it could be more than one, or offer to create a track if none matches. Act only after the user agrees, by running the keep start skill (/keep:start) with the track's name, or with no name to create one, and then carry on with what they asked. Otherwise just answer."
+  add "The first time a message of the user starts work (a change, research or a ticket, not a quick question), ask once whether to keep that work in a track: name the matching track, list the candidates if it could be more than one, or offer to create a track if none matches. Act only after the user agrees, by running the keep start skill (/keep:start) with the track's full name, <feature>/<track>, or with no name to create one, and then carry on with what they asked. Otherwise just answer."
   printf '%s' "$out" | lines_within "$budget"
   exit 0
 fi
 
 fdir="$keep/${binding%%/*}"
 tdir="$keep/$binding"
-short=$(start_arg "$keep" "${binding%%/*}" "${binding#*/}")
-add "Active track: $binding (a new chat starts it with /keep:start $short). Its files: $(rel "$fdir")/FEATURE.md, plus CONTEXT.md, STATE.md and NOTES.md in $(rel "$tdir")/."
+add "Active track: $binding (a new chat starts it with /keep:start $binding). Its files: $(rel "$fdir")/FEATURE.md, plus CONTEXT.md, STATE.md and NOTES.md in $(rel "$tdir")/."
 add "The user may call a track a workspace; /keep:current shows this one."
 add "STATE.md is the handoff for the next chat and must stay current. Record each decision as soon as it's made, with the options rejected and why, where FEATURE.md says decisions go."
 if [ -n "$worktree" ]; then
@@ -126,7 +125,7 @@ if [ "$src" = "compact" ]; then
   add "This chat has been compacted $n time(s); the files below are authoritative over the summary."
   add "Re-read the files FEATURE.md and CONTEXT.md list under \"Read on start\"; the summary may have dropped them."
   if [ "$n" -ge "$limit" ]; then
-    add "After $limit compactions: finish the current small step, run /keep:save, then tell the user to /clear, or to start a new chat with /keep:start $short."
+    add "After $limit compactions: finish the current small step, run /keep:save, then tell the user to /clear, or to start a new chat with /keep:start $binding."
   fi
 fi
 

@@ -39,42 +39,11 @@ list_tracks() {
   done
 }
 
-# resolve_target <keep> <name>: the track a one-word /keep:start means: a feature's only track, or else the
-# one track anywhere with that name. Prints nothing when the name matches no track or several.
-resolve_target() {
-  local tracks f hits=""
-  valid_name "$2" || return 0
-  if [ -d "$1/$2" ]; then
-    tracks=$(list_tracks "$1" "$2")
-    [ -n "$tracks" ] && [ "$(printf '%s\n' "$tracks" | wc -l | tr -d ' ')" = 1 ] && printf '%s/%s' "$2" "$tracks"
-    return 0
-  fi
-  for f in $(list_features "$1"); do
-    [ -f "$1/$f/$2/STATE.md" ] && hits="$hits $f/$2"
-  done
-  set -- $hits
-  [ "$#" = 1 ] && printf '%s' "$1"
-  return 0
-}
-
-# start_arg <keep> <feature> <track>: the shortest /keep:start argument that still names this track.
-start_arg() {
-  local best="$2/$3"
-  [ "$(resolve_target "$1" "$2")" = "$2/$3" ] && best="$2"
-  if [ "$(resolve_target "$1" "$3")" = "$2/$3" ] && [ "${#3}" -le "${#best}" ]; then best="$3"; fi
-  printf '%s' "$best"
-}
-
-# resolve_name <keep> <name>: the track a /keep:start name means, as <feature>/<track>. Prints nothing when the
-# name matches no track or several.
+# resolve_name <keep> <name>: the track a /keep:start name means, as <feature>/<track>. Only the full name counts:
+# a bare track name doesn't say which feature it belongs to, and could mean another track once one is added.
 resolve_name() {
-  local f="${2%%/*}" t=""
-  [[ "$2" == */* ]] && t="${2#*/}"
-  if [ -z "$t" ]; then
-    t=$(resolve_target "$1" "$f")
-    [ -n "$t" ] || return 0
-    f="${t%%/*}"; t="${t#*/}"
-  fi
+  [[ "$2" == */* ]] || return 0
+  local f="${2%%/*}" t="${2#*/}"
   valid_name "$f" && valid_name "$t" && [ -f "$1/$f/$t/STATE.md" ] && printf '%s/%s' "$f" "$t"
   return 0
 }

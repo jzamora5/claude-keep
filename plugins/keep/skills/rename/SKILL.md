@@ -9,8 +9,8 @@ Run each command below exactly as written, one per call, apart from that folder 
 
 Arguments: $ARGUMENTS
 
-1. Work out what to rename and the new name. "This track" means the one this chat is bound to: `cat "${CLAUDE_PROJECT_DIR}/.keep/.state/track-${CLAUDE_SESSION_ID}" 2>/dev/null`. A track's new name stays in its feature. If either is unclear, ask.
-2. Rename it: `bash "${CLAUDE_SKILL_DIR}/../../scripts/rename.sh" "${CLAUDE_PROJECT_DIR}" "<feature>[/<track>]" "<new name>"`. It moves the folder, updates the files' headers, keeps every chat bound to it (chats named after the track get the new name at their next message; chats the user named keep theirs), moves the git stamps and refreshes the index.
-3. If it lists files that still mention the old name, show them and offer to update those mentions; change nothing there until the user agrees.
+1. Work out what to rename and the new name. "This track" means the one this chat is bound to: `cat "${CLAUDE_PROJECT_DIR}/.keep/.state/track-${CLAUDE_SESSION_ID}" 2>/dev/null`. A track's new name stays in its feature. Ask only if either is unclear; ask nothing else.
+2. Rename it: `bash "${CLAUDE_SKILL_DIR}/../../scripts/rename.sh" "${CLAUDE_PROJECT_DIR}" "<feature>[/<track>]" "<new name>"`. It moves the folder, updates every reference to it inside `.keep/`, keeps every chat bound to it (chats named after the track get the new name at their next message; chats the user named keep theirs), moves its git stamps and review record, and refreshes the index.
+3. Update mentions of the old name outside `.keep/` yourself, without asking (for a track, its full name `<feature>/<track>` and its `.keep/` path; for a feature, its tracks' full names and its `.keep/<feature>/` path): the project's `CLAUDE.md` files and the user's saved memory notes for this project (the `memory/` folder under `~/.claude/projects/` whose name is the project folder's path with every `/` turned into `-`). Don't write anything about the rename in `STATE.md`.
 4. If the keep folder is its own git repo, commit it: `git -C "${CLAUDE_PROJECT_DIR}/.keep" add -A && git -C "${CLAUDE_PROJECT_DIR}/.keep" commit -m "Rename <old> to <new>"`.
-5. Reply with the old and new names, how many chats stayed bound, and the command that starts it now, from `${CLAUDE_PROJECT_DIR}/.keep/INDEX.md`.
+5. Reply in at most three lines: the old and new names, how many chats stayed bound, the new start command (`/keep:start <feature>/<track>`), and the files outside `.keep/` you updated.
