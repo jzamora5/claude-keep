@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # PostToolUse (Edit|Write|NotebookEdit|WebFetch|WebSearch|Agent): edits to project files and research mark
 # the chat "dirty". Editing the bound track's STATE.md clears that and stamps each of the feature's repos
-# with its current commit, so the next chat can see what changed since.
+# with its current commit, and its source docs with their sections and IDs, so the next chat can see what
+# changed since.
 . "$(dirname "$0")/lib.sh"
 [ -n "$binding" ] || exit 0
 tdir="$keep/$binding"
@@ -43,12 +44,29 @@ write_stamp() {
   mv "$tmp" "$stamp"
 }
 
+write_doc_stamp() {
+  local out tmp doc sum
+  out="$(stamp_file "$keep" "$binding").docs"
+  tmp=$(mktemp "$st/docs.XXXXXX") || return 0
+  while IFS= read -r doc; do
+    sum=$(cksum < "$root/$doc" | tr ' ' '-')
+    # A doc that hasn't changed keeps its lines, so a save doesn't index a large doc again for nothing.
+    if awk -F'\t' -v d="$doc" -v s="$sum" '$1 == d && $2 == "f" && $4 == s { found = 1 } END { exit !found }' "$out" 2>/dev/null; then
+      awk -F'\t' -v d="$doc" '$1 == d' "$out" >> "$tmp"
+    else
+      doc_index "$root/$doc" "$st" | awk -v d="$doc" '{ print d "\t" $0 }' >> "$tmp"
+    fi
+  done < <(source_docs "$keep" "${binding%%/*}")
+  if [ -s "$tmp" ]; then mv "$tmp" "$out"; else rm -f "$tmp" "$out"; fi
+}
+
 fp=$(field '.tool_input.file_path // .tool_input.notebook_path')
 case "$fp" in
   "$tdir/STATE.md")
     rm -f "$st/dirty-$sid"
     touch "$st/saved-$sid"
     write_stamp
+    write_doc_stamp
     bash "$(dirname "$0")/../scripts/index.sh" "$root" 2>/dev/null
     issues=$(bash "$(dirname "$0")/../scripts/audit.sh" "$root" "$binding" save 2>/dev/null)
     [ -z "$issues" ] || jq -n --arg c "keep's check of $binding after this save:

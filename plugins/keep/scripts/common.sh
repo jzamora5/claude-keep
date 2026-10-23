@@ -131,6 +131,56 @@ track_rows() {
   done
 }
 
+# listed <file> <label>: the backticked entries after "**<label>:**", on its line and the list under it.
+listed() {
+  awk -v l="**$2:**" 'index($0, l) { c = 1; print; next } c && /^[[:space:]]*-/ { print; next } { c = 0 }' "$1" 2>/dev/null \
+    | grep -oE '`[^`]+`' | tr -d '`'
+}
+
+# source_docs <keep> <feature>: the feature's source docs that exist, and its DECISIONS.md, relative to $root.
+source_docs() {
+  local p
+  {
+    listed "$1/$2/FEATURE.md" "Source docs" | while IFS= read -r p; do
+      case "$p" in *'<'*|*'*'*|*' '*) continue ;; esac
+      [ -f "$root/$p" ] && printf '%s\n' "$p"
+    done
+    [ -f "$1/$2/DECISIONS.md" ] && rel "$1/$2/DECISIONS.md" && echo
+  } | awk 'NF && !seen[$0]++'
+}
+
+# ids_in <file>...: the IDs, such as AD-28 or CP-041, that the files mention.
+ids_in() { cat "$@" 2>/dev/null | grep -oE '[A-Z]+-[0-9]+' | sort -u; }
+
+# doc_index <file> <scratch dir>: "f<TAB>-<TAB><checksum>" for the whole file and, for Markdown, one line per
+# heading section ("s<TAB><heading><TAB><checksum>") and per ID it defines ("a<TAB><ID><TAB><checksum>"). A
+# section runs to the next heading of any level, so an edit shows up only in the section it's in.
+doc_index() {
+  local d
+  printf 'f\t-\t%s\n' "$(cksum < "$1" | tr ' ' '-')"
+  case "$1" in *.md|*.markdown) ;; *) return 0 ;; esac
+  d=$(mktemp -d "$2/idx.XXXXXX") || return 0
+  LC_ALL=C awk -v d="$d" '
+    function section(k) { if (out) close(out); n++; out = sprintf("%s/%06d", d, n); printf "%06d\ts\t%s\n", n, k > (d "/keys") }
+    BEGIN { section("(before the first heading)") }
+    /^(```|~~~)/ { fence = !fence }
+    !fence && /^#+[ \t]/ {
+      k = $0; sub(/^#+[ \t]+/, "", k); sub(/[ \t]+#*[ \t]*$/, "", k); gsub(/\t/, " ", k)
+      if (++seen[k] > 1) k = k " (" seen[k] ")"
+      section(k)
+      if (match(k, /[A-Z]+-[0-9]+/)) printf "%06d\ta\t%s\n", n, substr(k, RSTART, RLENGTH) > (d "/keys")
+    }
+    { print > out }
+    !fence && /^\|[ \t]*\**[A-Z]+-[0-9]+/ && match($0, /[A-Z]+-[0-9]+/) {
+      id = substr($0, RSTART, RLENGTH); f = d "/a_" id
+      print >> f; close(f)
+      if (!(id in ids)) { ids[id]; printf "a_%s\ta\t%s\n", id, id > (d "/keys") }
+    }' "$1"
+  awk 'NR == FNR { sum[$3] = $1 "-" $2; next } { split($0, p, "\t"); print p[2] "\t" p[3] "\t" sum[p[1]] }' \
+    <(cd "$d" && cksum [0-9]* a_* 2>/dev/null) "$d/keys"
+  rm -r "${d:?}"
+}
+
 # The stamp is local runtime state: it describes this machine's checkouts, so it stays out of git.
 stamp_file() { printf '%s/.state/stamp-%s@%s' "$1" "${2%%/*}" "${2#*/}"; }
 

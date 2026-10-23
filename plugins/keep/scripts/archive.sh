@@ -58,7 +58,7 @@ for m in "$st"/named-*; do
   v=$(cat "$m")
   if [ -n "$track" ]; then [ "$v" = "$feature/$track" ] && rm -f "$m"; else [[ "$v" == "$feature"/* ]] && rm -f "$m"; fi
 done
-if [ -n "$track" ]; then rm -f "$(stamp_file "$keep" "$feature/$track")"; else rm -f "$st/stamp-$feature@"*; fi
+if [ -n "$track" ]; then s=$(stamp_file "$keep" "$feature/$track"); rm -f "$s" "$s.docs"; else rm -f "$st/stamp-$feature@"*; fi
 
 bash "$(dirname "$0")/index.sh" "$root"
 echo "To restore it, move it back out of $(rel "$keep/_archive")/."

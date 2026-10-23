@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.0 · 2026-10-23
+
+- In a feature with source docs, every chat is told they're the source of truth: before it states, decides or changes anything they cover, the agent asks `doc-expert` instead of relying on what `STATE.md` says about them, and cites what it uses by ID (such as AD-28) or heading. `doc-expert` returns the IDs and headings its answer comes from.
+- Each save records a checksum of every section of the feature's source docs and of every ID they define, in a table's first column or a heading, with the feature's `DECISIONS.md` counted as a source doc. At chat start and after `/clear`, a resume or a compaction, the agent is told which sections and IDs changed since that save, first the IDs the track cites. A save indexes only the docs that changed: about a second for a 580 KB doc with 300 sections, a checksum for one that didn't change.
+- keep's check flags IDs that `STATE.md` or `CONTEXT.md` cite and no source doc mentions anymore, for the kinds of ID the docs define, so ticket keys from elsewhere aren't flagged.
+- The one line saying the chat was bound and how to undo it shows only when the agent bound the chat on its own.
+- Closing a track asks whether to close it with the proposed list, so confirming the list is clearly confirming the close.
+
 ## 0.11.0 · 2026-10-23
 
 - When a chat that isn't bound starts work that clearly fits one track, the agent binds it to that track and carries on, saying so in one line with `/keep:start off` to undo it, instead of asking first. It asks only when more than one track could fit, and still creates a track only after you agree. `/keep:save` in a chat that isn't bound works the same way.

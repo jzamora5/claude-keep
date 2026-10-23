@@ -309,10 +309,12 @@ ok "old session files are cleared at chat start" '[ ! -f "$st/track-old" ] && [ 
 ok "the current chat keeps its binding even if its file was old" '[ "$(cat "$st/track-s1" 2>/dev/null)" = shop/tickets ] && [[ "$out" == *"Active track: shop/tickets"* ]]'
 
 echo "--- closing"
+printf 'x\n' > "$st/stamp-shop@research.docs"
 out=$(bash "$H/scripts/archive.sh" "$R" shop/research)
 ok "closing a track moves it into the archive" '[ -f "$K/_archive/shop/research/STATE.md" ] && [ ! -e "$K/shop/research" ] && [[ "$out" == *"Moved .keep/shop/research to .keep/_archive/shop/research"* ]]'
 ok "both chats bound to it are unbound, others keep theirs" '[ ! -f "$st/track-s2" ] && [ ! -f "$st/track-s5" ] && [ -f "$st/track-s1" ] && [[ "$out" == *"Chats unbound: 2"* ]]'
 ok "closing forgets the names remembered for it" '[ ! -f "$(nf "My review")" ]'
+ok "closing removes its source-doc stamp" '[ ! -e "$st/stamp-shop@research.docs" ]'
 ok "the index drops it and counts the archive" '! grep -q "shop/research" "$K/INDEX.md" && grep -q "Archived tracks: 1" "$K/INDEX.md"'
 out=$(bash "$H/scripts/status.sh" "$R")
 ok "the archive never shows up as a feature" '[[ "$out" != *_archive* ]] && [ "$(printf "%s\n" "$out" | wc -l | tr -d " ")" = 2 ]'
@@ -436,14 +438,14 @@ printf -- '- 2026-10-22 · from shop/tickets · see .keep/shop/tickets/NOTES.md\
 printf 'shop is a plain word here; .keep/shop/FEATURE.md\n' >> "$NK/shop/FEATURE.md"
 mkdir -p "$NK/_archive/shop/old"; printf 'from shop/tickets\n' > "$NK/_archive/shop/old/STATE.md"
 printf 'shop/tickets\n' > "$NS/track-n1"; printf 'shop/tickets\n' > "$NS/track-n2"; printf 'shop/research\n' > "$NS/track-n3"
-printf 'x\n' > "$NS/stamp-shop@tickets"; printf '1 2 x\n' > "$NS/deep-shop@tickets"
+printf 'x\n' > "$NS/stamp-shop@tickets"; printf 'x\n' > "$NS/stamp-shop@tickets.docs"; printf '1 2 x\n' > "$NS/deep-shop@tickets"
 printf 'shop/tickets\n' > "$NS/track-n4"; printf 'Review chat\n' > "$NS/name-n4"
 NF=$(. "$H/scripts/common.sh"; name_file "$NK" "Review chat"); printf 'shop/tickets\n' > "$NF"
 out=$(bash "$H/scripts/rename.sh" "$N" shop/tickets build)
 ok "renaming a track moves its folder and updates its headers" '[ -f "$NK/shop/build/STATE.md" ] && [ ! -e "$NK/shop/tickets" ] && head -1 "$NK/shop/build/STATE.md" | grep -qx "# State: shop/build" && head -1 "$NK/shop/build/CONTEXT.md" | grep -qx "# Track: shop/build"'
 ok "its chats stay bound and get the new name at their next message" '[ "$(cat "$NS/track-n1")" = shop/build ] && [ "$(cat "$NS/track-n2")" = shop/build ] && [ "$(cat "$NS/title-n1")" = shop/build ] && [ "$(cat "$NS/track-n3")" = shop/research ] && [ ! -f "$NS/title-n3" ] && [[ "$out" == *"renamed at their next message: 2"* ]]'
 ok "a chat the user named stays bound, keeps its name, and its remembered track follows" '[ "$(cat "$NS/track-n4")" = shop/build ] && [ ! -f "$NS/title-n4" ] && [ "$(cat "$NF")" = shop/build ] && [[ "$out" == *"Chats kept bound: 3, renamed at their next message: 2"* ]]'
-ok "its stamp and deep-review record follow it" '[ -f "$NS/stamp-shop@build" ] && [ ! -e "$NS/stamp-shop@tickets" ] && [ -f "$NS/deep-shop@build" ] && [ ! -e "$NS/deep-shop@tickets" ]'
+ok "its stamps and deep-review record follow it" '[ -f "$NS/stamp-shop@build" ] && [ ! -e "$NS/stamp-shop@tickets" ] && [ -f "$NS/stamp-shop@build.docs" ] && [ ! -e "$NS/stamp-shop@tickets.docs" ] && [ -f "$NS/deep-shop@build" ] && [ ! -e "$NS/deep-shop@tickets" ]'
 ok "its stamp follows it" '[ -f "$NS/stamp-shop@build" ] && [ ! -e "$NS/stamp-shop@tickets" ]'
 ok "the index lists the new name" 'grep -q "| shop/build |" "$NK/INDEX.md" && ! grep -q "shop/tickets |" "$NK/INDEX.md"'
 ok "every reference to it in the keep folder is updated" 'grep -q "from shop/build · see .keep/shop/build/NOTES.md" "$NK/shop/research/STATE.md" && grep -q "^- shop/build,shop/build; shop/ticketsx and api/shop/tickets stay" "$NK/shop/research/STATE.md" && [[ "$out" == *"Files updated to the new name: 3"* ]]'
@@ -451,7 +453,7 @@ ok "but not in the archive" 'grep -qx "from shop/tickets" "$NK/_archive/shop/old
 out=$(printf '{"session_id":"n1","prompt":"carry on"}' | CLAUDE_PROJECT_DIR="$N" "$H/hooks/bind.sh")
 ok "the bind hook renames that chat at its next message" '[ "$(jq -r .hookSpecificOutput.sessionTitle <<<"$out")" = shop/build ] && [ ! -f "$NS/title-n1" ]'
 out=$(bash "$H/scripts/rename.sh" "$N" shop store)
-ok "renaming a feature moves it and every binding and stamp under it" '[ -f "$NK/store/build/STATE.md" ] && [ ! -e "$NK/shop" ] && [ "$(cat "$NS/track-n2")" = store/build ] && [ "$(cat "$NS/track-n3")" = store/research ] && [ -f "$NS/stamp-store@build" ] && head -1 "$NK/store/FEATURE.md" | grep -qx "# Feature: store" && head -1 "$NK/store/DECISIONS.md" | grep -qx "# Decisions: store" && head -1 "$NK/store/research/STATE.md" | grep -qx "# State: store/research"'
+ok "renaming a feature moves it and every binding and stamp under it" '[ -f "$NK/store/build/STATE.md" ] && [ ! -e "$NK/shop" ] && [ "$(cat "$NS/track-n2")" = store/build ] && [ "$(cat "$NS/track-n3")" = store/research ] && [ -f "$NS/stamp-store@build" ] && [ -f "$NS/stamp-store@build.docs" ] && head -1 "$NK/store/FEATURE.md" | grep -qx "# Feature: store" && head -1 "$NK/store/DECISIONS.md" | grep -qx "# Decisions: store" && head -1 "$NK/store/research/STATE.md" | grep -qx "# State: store/research"'
 ok "and updates its tracks' full names and paths, not the feature's name as a word" 'grep -q "from store/build · see .keep/store/build/NOTES.md" "$NK/store/research/STATE.md" && grep -qx "shop is a plain word here; .keep/store/FEATURE.md" "$NK/store/FEATURE.md"'
 for a in "store/nope x" "store/build research" "store/build off" "store/build ../x" "nope x" "store research"; do
   mkdir -p "$NK/research"
@@ -553,6 +555,57 @@ ok "a chat start or a fresh binding starts the review when it's due" 'grep -q "p
 ok "save and done no longer start it" '[ -z "$(grep -l "audit.sh.*due" "$H"/skills/{save,done}/SKILL.md)" ]'
 ok "the handled result goes to a review file, with an Inbox pointer when it has items" '[ "$(grep -l "Nothing needs the user" "$H/hooks/load.sh" "$H/skills/start/SKILL.md" "$H/skills/audit/SKILL.md" | wc -l | tr -d " ")" = 3 ]'
 ok "the start-of-chat text has no backticks, which bash would run as commands" '! grep -q "add \".*\`" "$H/hooks/load.sh"'
+
+echo "--- source docs"
+D=$(mktemp -d "${TMPDIR:-/tmp}/keep-docs.XXXXXX"); DK="$D/.keep"; DS="$DK/.state"; DD="$DS/stamp-pay@main.docs"
+mkdir -p "$D/docs" "$DK/pay/main" "$DS"
+rfc() { printf '# Pay RFC\nIntro.\n## Decisions\n| ID | Date | Decision |\n| --- | --- | --- |\n%s\n## KYC form\n%s\n```sh\n# not a heading\n```\n## Notes\nfirst\n%s' "$1" "$2" "$3" > "$D/docs/rfc.md"; }
+rfc '| AD-1 | 2026-10-01 | One account per member |
+| AD-2 | 2026-10-02 | Full SSN, tokenized in the browser |' 'One form.' '## Notes
+second
+'
+printf '# Feature: pay\n\n**Source docs:** `docs/rfc.md`, `docs/missing.md`\n\n**Decisions:** `DECISIONS.md` in this folder\n' > "$DK/pay/FEATURE.md"
+printf '# Decisions: pay\n\n## D-001 · 2026-10-20 · One form\n' > "$DK/pay/DECISIONS.md"
+printf '# Track: pay/main\n\n**Goal:** build pay\n' > "$DK/pay/main/CONTEXT.md"
+state pay/main "the KYC form per AD-2 and D-001 [assumed]" "check AD-1, AD-9 and CASH-12" > "$DK/pay/main/STATE.md"
+printf 'pay/main\n' > "$DS/track-d1"
+dh() { printf '%s' "$2" | CLAUDE_PROJECT_DIR="$D" "$H/hooks/$1.sh"; }
+dsave() { dh track "{\"session_id\":\"d1\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$DK/pay/main/STATE.md\"}}" >/dev/null; }
+has() { awk -F'\t' -v d="$2" -v k="$3" -v n="$4" '$1 == d && $2 == k && $3 == n { f = 1 } END { exit !f }' "$1"; }
+dsave
+ok "a save records each source doc's sections and the IDs it defines" 'has "$DD" docs/rfc.md s "KYC form" && has "$DD" docs/rfc.md a AD-2 && has "$DD" docs/rfc.md s "Notes (2)" && ! grep -q "not a heading" "$DD"'
+ok "the feature's DECISIONS.md counts as a source doc, and a listed doc that doesn't exist is skipped" 'has "$DD" .keep/pay/DECISIONS.md a D-001 && ! grep -q missing.md "$DD"'
+out=$(bash "$H/scripts/freshness.sh" "$D" pay/main)
+ok "unchanged docs are reported in one line" '[[ "$out" == *"Source docs: no changes since STATE.md was last written."* && "$out" == *"No git stamp yet"* ]]'
+before=$(cat "$DD"); dsave
+ok "saving again keeps the lines of a doc that didn't change" '[ "$(cat "$DD")" = "$before" ]'
+rfc '| AD-2 | 2026-10-20 | Last four of the SSN |
+| AD-3 | 2026-10-21 | Payouts at first withdrawal |' 'Two forms.' ''
+out=$(bash "$H/scripts/freshness.sh" "$D" pay/main)
+ok "a changed doc lists the sections and IDs that changed" '[[ "$out" == *"- docs/rfc.md: sections changed: \"Decisions\", \"KYC form\"; removed sections: \"Notes (2)\"; IDs changed: AD-2; new IDs: AD-3; removed IDs: AD-1"* ]]'
+ok "then the IDs the track cites that changed or are gone" '[[ "$out" == *"cites IDs that changed: AD-2, AD-1 (removed). Check those lines against the docs."* ]]'
+ok "the doc report comes first, so the reload keeps it" '[[ "$(printf "%s\n" "$out" | head -1)" == "Source docs changed since STATE.md was last written."*"doc-expert"* ]]'
+ok "a doc that didn't change isn't listed" '[[ "$out" != *DECISIONS.md* ]]'
+out=$(bash "$H/scripts/audit.sh" "$D" pay/main start)
+ok "the check flags cited IDs no source doc mentions" '[[ "$out" == *"cites IDs no source doc mentions: AD-1, AD-9."* ]]'
+ok "but not IDs of a kind the docs don't define, such as ticket keys" '[[ "$out" != *CASH-12* && "$out" != *D-001* ]]'
+out=$(dh load '{"session_id":"d1","source":"resume"}')
+ok "a bound chat is told the source docs are the source of truth, and to ask doc-expert" '[[ "$out" == *"The source docs FEATURE.md lists are the source of truth: before you state, decide or change anything they cover, ask the doc-expert subagent"* && "$out" == *"cite what you use by ID"* ]]'
+ok "and the reload reports what changed in them" '[[ "$out" == *"- docs/rfc.md: sections changed:"* ]]'
+dsave; out=$(bash "$H/scripts/freshness.sh" "$D" pay/main)
+ok "after the next save, the docs count as unchanged again" '[[ "$out" == *"Source docs: no changes since"* ]]'
+printf 'x\n' >> "$D/docs/rfc.md"; mv "$D/docs/rfc.md" "$D/docs/old-rfc.md"
+out=$(bash "$H/scripts/freshness.sh" "$D" pay/main)
+ok "a doc that was moved or deleted is reported" '[[ "$out" == *"- docs/rfc.md: no longer there"* ]]'
+out=$(hook load '{"session_id":"s1","source":"resume"}')
+ok "a feature without source docs gets no such line" '[[ "$out" != *"source of truth"* ]]'
+# About the shape of a real 570 KB RFC: a few hundred sections and IDs, each section a couple of KB.
+awk 'BEGIN { for (i = 1; i <= 300; i++) { printf "## Section %d\n| AD-%d | 2026-10-01 | a decision row |\n", i, i; for (j = 0; j < 22; j++) print "Body text of the section, long enough to make the file about as large as a real RFC is." } }' > "$D/docs/rfc.md"
+cold=$(ms bash -c 'printf "%s" "$1" | CLAUDE_PROJECT_DIR="$2" "$3/hooks/track.sh"' _ "{\"session_id\":\"d1\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$DK/pay/main/STATE.md\"}}" "$D" "$H")
+warm=$(ms bash -c 'printf "%s" "$1" | CLAUDE_PROJECT_DIR="$2" "$3/hooks/track.sh"' _ "{\"session_id\":\"d1\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$DK/pay/main/STATE.md\"}}" "$D" "$H")
+ok "a save that indexes a $(( $(wc -c < "$D/docs/rfc.md") / 1024 )) KB doc takes under 2 s (${cold} ms)" '[ "$cold" -lt 2000 ] && has "$DD" docs/rfc.md a AD-300'
+ok "and once it's indexed, a save takes under 1 s (${warm} ms)" '[ "$warm" -lt 1000 ]'
+rm -rf "$D"
 
 echo "--- skill commands"
 ok "nothing refers to a custom keep folder anymore" '! grep -rq KEEP_FOLDER "$H"'

@@ -24,21 +24,20 @@ cache="$st/audit-$f@$t"
 told="$cache.told"
 
 size() { if [ -f "$1" ]; then wc -c < "$1" | tr -d ' '; else echo 0; fi; }
-# The script and the date are part of the fingerprint: a keep update with different checks scans again, and so
-# does a new day, since the Inbox check depends on the date.
-fingerprint() { { date +%Y-%m-%d; cat "$0" "$feature" "$context" "$state" "$notes" 2>/dev/null; } | cksum | tr ' ' '-'; }
+# The script, the date and the source docs are part of the fingerprint: a keep update with different checks
+# scans again, and so does a new day, since the Inbox check depends on the date, and a changed doc, since the
+# ID check depends on it.
+fingerprint() {
+  { date +%Y-%m-%d; cat "$0" "$feature" "$context" "$state" "$notes" 2>/dev/null
+    source_docs "$keep" "$f" | while IFS= read -r p; do cat "$root/$p"; done; } | cksum | tr ' ' '-'
+}
 # section <file> <heading>: the lines under "## <heading>".
 section() { awk -v h="## $2" 'index($0, "## ") == 1 { c = (index($0, h) == 1); next } c' "$1" 2>/dev/null; }
-# listed <file> <label>: the backticked entries after "**<label>:**", on its line and the list under it.
-listed() {
-  awk -v l="**$2:**" 'index($0, l) { c = 1; print; next } c && /^[[:space:]]*-/ { print; next } { c = 0 }' "$1" 2>/dev/null \
-    | grep -oE '`[^`]+`' | tr -d '`'
-}
 epoch() { date -j -f %Y-%m-%d "$1" +%s 2>/dev/null || date -d "$1" +%s 2>/dev/null; }
 
 # Limits match what a reload keeps whole; fixes aim well under them so a file doesn't flip back every save.
 checks() {
-  local s n missing big p path day now
+  local s n missing big p path day now docs defined gone
   s=$(size "$state")
   [ "$s" -gt 5000 ] && printf 'state-size\tSTATE.md is %s bytes, over 5,000: move the oldest Done-log lines and settled Gotchas to NOTES.md until it is about 4,000.\n' "$s"
   s=$(size "$context")
@@ -78,6 +77,16 @@ checks() {
   if [ -f "$notes" ]; then
     n=$(awk 'NR == FNR { if (length($0) >= 40) seen[$0] = 1; next } length($0) >= 40 && !/^#/ && !/<!--/ && ($0 in seen)' "$notes" "$state" | wc -l | tr -d ' ')
     [ "$n" -gt 0 ] && printf 'duplicate\t%s line(s) appear word for word in both STATE.md and NOTES.md: keep them in NOTES.md only.\n' "$n"
+  fi
+  # A cited ID counts as gone only when the docs define IDs like it and none of them mentions it, so ticket
+  # keys and other IDs from outside the docs aren't flagged.
+  docs=$(source_docs "$keep" "$f" | sed "s#^#$root/#")
+  if [ -n "$docs" ]; then
+    defined=$(printf '%s\n' "$docs" | while IFS= read -r p; do cat "$p"; done \
+      | awk '(/^\|[ \t]*\**[A-Z]+-[0-9]+/ || /^#+[ \t]/) && match($0, /[A-Z]+-[0-9]+/) { s = substr($0, RSTART, RLENGTH); sub(/-.*/, "", s); print s }' | sort -u | tr '\n' ' ')
+    gone=$(comm -23 <(ids_in "$state" "$context" | awk -v p=" $defined" '{ s = $0; sub(/-.*/, "", s); if (index(p, " " s " ")) print }') \
+      <(printf '%s\n' "$docs" | while IFS= read -r p; do ids_in "$p"; done | sort -u) | head -10 | paste -sd ',' - | sed 's/,/, /g')
+    [ -n "$gone" ] && printf 'id-missing\tSTATE.md or CONTEXT.md cites IDs no source doc mentions: %s. Check each with the doc-expert subagent: fix the line if the docs renamed or removed it, or ask the user whether to record it in the docs if it is new.\n' "$gone"
   fi
   now=$(date +%s)
   n=0

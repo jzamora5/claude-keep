@@ -118,6 +118,7 @@ tdir="$keep/$binding"
 add "Active track: $binding (a new chat starts it with /keep:start $binding). Its files: $(rel "$fdir")/FEATURE.md, plus CONTEXT.md, STATE.md and NOTES.md in $(rel "$tdir")/."
 add "The user may call a track a workspace; /keep:current shows this one."
 add "STATE.md is the handoff for the next chat and must stay current. Record each decision as soon as it's made, with the options rejected and why, where FEATURE.md says decisions go."
+[ -z "$(source_docs "$keep" "${binding%%/*}")" ] || add "The source docs FEATURE.md lists are the source of truth: before you state, decide or change anything they cover, ask the doc-expert subagent (pass it their paths and where decisions go) instead of trusting what STATE.md says, and cite what you use by ID (such as AD-28) or heading."
 if [ -n "$worktree" ]; then
   add "This chat runs in a Claude Code worktree, and Claude Code blocks edits to the main checkout, where $(rel "$keep")/ is. So this chat can read the track but can't update STATE.md, and isn't asked to. Say so in your first reply, so the user knows this chat's work won't reach the track."
 fi
